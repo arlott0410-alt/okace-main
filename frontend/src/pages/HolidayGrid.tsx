@@ -1144,9 +1144,9 @@ export default function HolidayGrid() {
                           ) : full ? (
                             <span className="inline-block w-full h-full" title="โควต้าวันนี้เต็มแล้ว" aria-label="โควต้าเต็ม" />
                           ) : canOnlySelfHoliday && !isMe ? (
-                            <span className="text-gray-500 cursor-help" title="ทำรายการได้เฉพาะของตนเอง">
-                              —
-                            </span>
+                            <div style={baseCellStyle} className={`text-gray-500 cursor-default ${letterCellClass}`} title={shiftLabel ? `กะ${shiftLabel} · ทำรายการได้เฉพาะของตนเอง` : 'ทำรายการได้เฉพาะของตนเอง'}>
+                              {cellLetter}
+                            </div>
                           ) : (
                             <div style={baseCellStyle} className={`text-gray-500 ${letterCellClass}`} title={shiftLabel || undefined}>
                               {cellLetter}
