@@ -25,6 +25,31 @@ function todayDateString(): string {
   return bkk.getFullYear() + '-' + String(bkk.getMonth() + 1).padStart(2, '0') + '-' + String(bkk.getDate()).padStart(2, '0');
 }
 
+/** นาฬิกาตามเวลาในเครื่องผู้ใช้ — แสดงใน header แดชบอร์ด */
+function LocalClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const dateStr = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+  return (
+    <div
+      className="flex items-center gap-2 rounded-lg border border-premium-gold/20 bg-premium-dark/60 px-3 py-1.5"
+      title={`เวลาตามเครื่องคุณ · ${dateStr} ${timeStr}`}
+      aria-live="polite"
+      aria-label={`เวลา ${timeStr} วันที่ ${dateStr}`}
+    >
+      <span className="text-premium-gold/80 text-lg leading-none" aria-hidden>🕐</span>
+      <div className="flex flex-col items-end leading-tight">
+        <span className="text-premium-gold font-mono text-[15px] font-medium tabular-nums">{timeStr}</span>
+        <span className="text-[11px] text-gray-500">{dateStr}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { profile } = useAuth();
   const { shifts, branches } = useBranchesShifts();
@@ -190,6 +215,7 @@ export default function Dashboard() {
               ? 'จัดการทุกแผนก และใช้เมนูพนักงานได้'
               : undefined
         }
+        actions={<LocalClock />}
       />
 
       <ProfileBar profile={profile ?? null} />
