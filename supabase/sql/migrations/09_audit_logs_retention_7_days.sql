@@ -25,6 +25,3 @@ BEGIN
   RETURN v_deleted;
 END;
 $$;
-
-COMMENT ON FUNCTION delete_audit_logs_older_than_days(INT) IS
-  'ลบ audit_logs ที่ created_at เก่ากว่า p_days วัน คืนจำนวนแถวที่ลบ — ใช้กับ Cron รายวัน (เช่น 7 วัน)';

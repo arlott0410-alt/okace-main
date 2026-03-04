@@ -65,5 +65,3 @@ BEGIN
   RETURN jsonb_build_object('ok', true, 'id', v_log_id);
 END;
 $$;
-
-COMMENT ON FUNCTION book_meal_break(DATE,TEXT,TIMESTAMPTZ,TIMESTAMPTZ) IS 'จองพักอาหาร MEAL — ตรวจ slot ต้องอยู่ทั้งกะ (ทั้งเริ่มและจบภายในเวลากะ)';

@@ -148,5 +148,3 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-COMMENT ON FUNCTION holidays_check_quota() IS 'บังคับกติกาวันหยุด: นับเฉพาะ leave_type=X (1) สูงสุด X วัน/คน/เดือน (2) โควต้าขั้น combined ต่อวัน — วันลาอื่นๆ ไม่นับโควต้า';

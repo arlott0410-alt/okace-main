@@ -1,4 +1,4 @@
-﻿-- ==============================================================================
+-- ==============================================================================
 -- 03: รวม 002-010, 011-057 (รันหลัง 01 และ 02)
 -- ลำดับ: 002 ตั้งเว็บหลัก → ... → 010 manager → 011 หัวหน้าเห็นทุกคน → ... → 057 หัวหน้า=ผู้จัดการ
 -- ==============================================================================
@@ -25,8 +25,6 @@ BEGIN
   UPDATE website_assignments SET is_primary = true WHERE user_id = p_user_id AND website_id = p_website_id;
 END;
 $$;
-COMMENT ON FUNCTION set_primary_website(UUID, UUID) IS 'ตั้งเว็บหลักของ user — แอดมินได้ทุกคน, หัวหน้าสาขาได้เฉพาะผู้ใช้ในสาขาตัวเอง';
-
 
 -- ---------- 003_duty_roles_instructor_head.sql ----------
 -- duty_roles: ให้หัวหน้าสาขาเพิ่ม/แก้/ลบ หน้าที่ได้เฉพาะสาขาของตัวเอง
@@ -92,7 +90,6 @@ CREATE TABLE IF NOT EXISTS holiday_quota_tiers (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-COMMENT ON TABLE holiday_quota_tiers IS 'กติกาโควต้าวันหยุดแบบชั้น: ถ้าจำนวนคนในมิตินั้น <= max_people จะหยุดได้สูงสุด max_leave คน (แยกกลุ่มหัวหน้า/ผู้สอน vs พนักงานออนไลน์)';
 CREATE INDEX IF NOT EXISTS idx_holiday_quota_tiers_dimension_group ON holiday_quota_tiers(dimension, user_group);
 ALTER TABLE holiday_quota_tiers ENABLE ROW LEVEL SECURITY;
 
@@ -179,8 +176,6 @@ CREATE TABLE IF NOT EXISTS group_link_branches (
 );
 CREATE INDEX IF NOT EXISTS idx_group_link_branches_link ON group_link_branches(group_link_id);
 CREATE INDEX IF NOT EXISTS idx_group_link_branches_branch ON group_link_branches(branch_id);
-COMMENT ON TABLE group_link_branches IS 'สาขาที่เห็นลิงก์ได้ (เมื่อมีหลายสาขา; ว่าง = ใช้ branch_id หรือทั้งหมด)';
-
 -- RLS: เห็นลิงก์ถ้า branch_id ตรง หรือ branch_id IS NULL (ทั้งหมด) หรือ สาขาของฉันอยู่ใน group_link_branches
 DROP POLICY IF EXISTS group_links_select ON group_links;
 CREATE POLICY group_links_select ON group_links FOR SELECT TO authenticated USING (
@@ -597,10 +592,6 @@ CREATE POLICY holiday_quotas_select ON holiday_quotas FOR SELECT TO authenticate
 CREATE INDEX IF NOT EXISTS idx_break_logs_branch_shift_date_status ON break_logs(branch_id, shift_id, break_date, status);
 CREATE INDEX IF NOT EXISTS idx_holidays_branch_shift_date_status ON holidays(branch_id, shift_id, holiday_date, status);
 
-COMMENT ON FUNCTION is_manager() IS 'ผู้จัดการ';
-COMMENT ON FUNCTION is_admin_or_manager() IS 'admin หรือ manager';
-COMMENT ON FUNCTION is_employee_role() IS 'บทบาทพนักงาน: manager, instructor_head, instructor, staff';
-
 
 -- ---------- 011_head_instructor_global_visibility.sql ----------
 -- ========== 011: instructor_head + instructor เห็นทุกคน (ทุกสาขา/กะ) แต่เขียนเฉพาะของตัวเอง ==========
@@ -630,10 +621,6 @@ CREATE OR REPLACE FUNCTION is_employee_self(uid UUID)
 RETURNS BOOLEAN AS $$
   SELECT auth.uid() = uid;
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
-
-COMMENT ON FUNCTION is_instructor() IS 'บทบาทผู้สอน (ไม่รวมหัวหน้า)';
-COMMENT ON FUNCTION can_global_read_employees() IS 'เห็นพนักงานทุกสาขา: admin, manager, instructor_head, instructor';
-COMMENT ON FUNCTION is_employee_self(UUID) IS 'แถวเป็นของ current user หรือไม่';
 
 -- 4) PROFILES: SELECT ให้ head + instructor เห็นทุก profile
 DROP POLICY IF EXISTS profiles_select ON profiles;
@@ -735,9 +722,6 @@ AS $$
   LIMIT 1;
 $$;
 
-COMMENT ON FUNCTION public.get_email_for_login(TEXT)
-IS 'ใช้สำหรับหน้าเข้าสู่ระบบ: แปลงชื่อผู้ใช้/อีเมล เป็น auth.users.email (JOIN profiles เพื่อเช็ค active)';
-
 GRANT EXECUTE ON FUNCTION public.get_email_for_login(TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.get_email_for_login(TEXT) TO authenticated;
 
@@ -761,8 +745,6 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
-COMMENT ON FUNCTION profiles_guard_admin_manager_role() IS 'ห้ามตั้ง role เป็น admin/manager เว้นแต่ caller เป็น admin; อนุญาตเมื่อ auth.uid() เป็น null (service role)';
 
 
 -- ---------- 014_holidays_head_manager_full_edit.sql ----------
@@ -813,8 +795,6 @@ CREATE TABLE IF NOT EXISTS meal_round_templates (
 );
 CREATE INDEX IF NOT EXISTS idx_meal_round_templates_branch ON meal_round_templates(branch_id);
 CREATE INDEX IF NOT EXISTS idx_meal_round_templates_active ON meal_round_templates(active) WHERE active = true;
-COMMENT ON TABLE meal_round_templates IS 'รอบพักอาหาร (เช่น เช้า/กลางวัน) branch_id null = ใช้ทุกสาขา';
-
 -- 2) meal_slot_templates (slots within a round)
 CREATE TABLE IF NOT EXISTS meal_slot_templates (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -827,8 +807,6 @@ CREATE TABLE IF NOT EXISTS meal_slot_templates (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_meal_slot_templates_round ON meal_slot_templates(round_id);
-COMMENT ON TABLE meal_slot_templates IS 'ช่วงเวลาย่อยในแต่ละรอบ';
-
 -- 3) meal_concurrency_rules (capacity: when on_duty_count <= X, allow Y concurrent)
 CREATE TABLE IF NOT EXISTS meal_concurrency_rules (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -844,8 +822,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_meal_concurrency_rules_group_threshold
   ON meal_concurrency_rules(branch_id, shift_id, website_id, max_staff_threshold);
 CREATE INDEX IF NOT EXISTS idx_meal_concurrency_rules_lookup
   ON meal_concurrency_rules(branch_id, shift_id, website_id);
-COMMENT ON TABLE meal_concurrency_rules IS 'ถ้าจำนวนคนอยู่ปฏิบัติงาน <= max_staff_threshold ให้จองพักพร้อมกันได้สูงสุด max_concurrent คน (เลือก rule ที่ threshold น้อยที่สุดที่ >= on_duty_count)';
-
 -- 4) meal_logs (bookings)
 CREATE TABLE IF NOT EXISTS meal_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -864,8 +840,6 @@ CREATE TABLE IF NOT EXISTS meal_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_meal_logs_user_work_date ON meal_logs(user_id, work_date);
 CREATE INDEX IF NOT EXISTS idx_meal_logs_slot_capacity ON meal_logs(branch_id, shift_id, website_id, work_date, slot_id);
-COMMENT ON TABLE meal_logs IS 'การจองพักอาหาร; ต่อ workday ต่อ user จองได้สูงสุด 2 รอบ (1 slot ต่อ round)';
-
 -- Trigger: max 2 bookings per (user_id, work_date)
 CREATE OR REPLACE FUNCTION meal_logs_check_max_two_per_workday()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
@@ -967,8 +941,6 @@ BEGIN
   );
 END;
 $$;
-COMMENT ON FUNCTION get_meal_capacity(UUID,UUID,UUID,DATE,UUID,TIMESTAMPTZ) IS 'Capacity for a meal slot: on_duty (holiday-aware), max_concurrent from rules, current_booked, is_full';
-
 -- ========== 6) RLS ==========
 ALTER TABLE meal_round_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE meal_slot_templates ENABLE ROW LEVEL SECURITY;
@@ -1101,8 +1073,6 @@ BEGIN
   );
 END;
 $$;
-COMMENT ON FUNCTION get_available_slots(DATE) IS 'Rounds and slots for workday with capacity; for current user branch/shift/website';
-
 GRANT EXECUTE ON FUNCTION get_available_slots(DATE) TO authenticated;
 
 -- book_meal: insert meal_log; checks shift_start_ts, meal_count < 2, capacity, slot in shift window
@@ -1200,10 +1170,6 @@ ALTER TABLE break_logs ADD COLUMN IF NOT EXISTS break_type TEXT NOT NULL DEFAULT
   CHECK (break_type IN ('NORMAL', 'MEAL'));
 ALTER TABLE break_logs ADD COLUMN IF NOT EXISTS round_key TEXT;
 ALTER TABLE break_logs ADD COLUMN IF NOT EXISTS website_id UUID REFERENCES websites(id) ON DELETE SET NULL;
-COMMENT ON COLUMN break_logs.break_type IS 'NORMAL = พักทั่วไป, MEAL = จองเวลาพักทานอาหาร';
-COMMENT ON COLUMN break_logs.round_key IS 'สำหรับ MEAL: รหัสรอบจาก rounds_json (e.g. round_0)';
-COMMENT ON COLUMN break_logs.website_id IS 'สำหรับ MEAL: เว็บหลักที่จอง';
-
 -- Unique: one meal booking per user per work_date per round
 CREATE UNIQUE INDEX IF NOT EXISTS idx_break_logs_meal_user_date_round
   ON break_logs (user_id, break_date, round_key)
@@ -1243,8 +1209,6 @@ CREATE TABLE IF NOT EXISTS meal_settings (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_meal_settings_effective ON meal_settings(effective_from DESC);
-COMMENT ON TABLE meal_settings IS 'ตั้งค่าจองพักอาหาร: เปิด/ปิด, รอบและสล็อต (rounds_json), จำนวนจองสูงสุดต่อวัน';
-
 ALTER TABLE meal_settings ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS meal_settings_select ON meal_settings;
 CREATE POLICY meal_settings_select ON meal_settings FOR SELECT TO authenticated USING (true);
@@ -1265,8 +1229,6 @@ CREATE TABLE IF NOT EXISTS meal_quota_rules (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_meal_quota_rules_lookup
   ON meal_quota_rules(branch_id, shift_id, website_id, on_duty_threshold);
 CREATE INDEX IF NOT EXISTS idx_meal_quota_rules_group ON meal_quota_rules(branch_id, shift_id, website_id);
-COMMENT ON TABLE meal_quota_rules IS 'โควต้าพักอาหาร: เมื่อ on_duty <= X ให้จองพร้อมกันได้สูงสุด Y';
-
 ALTER TABLE meal_quota_rules ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS meal_quota_rules_select ON meal_quota_rules;
 CREATE POLICY meal_quota_rules_select ON meal_quota_rules FOR SELECT TO authenticated USING (true);
@@ -1554,9 +1516,6 @@ ALTER TABLE shift_swaps
 ALTER TABLE cross_branch_transfers
   ADD COLUMN IF NOT EXISTS skipped_dates JSONB DEFAULT NULL;
 
-COMMENT ON COLUMN shift_swaps.skipped_dates IS 'Dates skipped in bulk assignment due to holiday (approved/pending)';
-COMMENT ON COLUMN cross_branch_transfers.skipped_dates IS 'Dates skipped in bulk assignment due to holiday (approved/pending)';
-
 -- 2) monthly_roster: instructor_head can insert/update/delete for their branch only
 DROP POLICY IF EXISTS monthly_roster_insert ON monthly_roster;
 CREATE POLICY monthly_roster_insert ON monthly_roster
@@ -1690,9 +1649,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION apply_bulk_assignment(UUID[], DATE, DATE, UUID, UUID, TEXT) IS
-  'Bulk assign roster for date range; skips dates with approved/pending holiday. Caller must be admin/manager/instructor_head.';
-
 
 -- ---------- 019_leave_types_and_quota_exempt.sql ----------
 -- ========== 019: Leave types + quota exemption for manager-entered leaves ==========
@@ -1704,9 +1660,6 @@ COMMENT ON FUNCTION apply_bulk_assignment(UUID[], DATE, DATE, UUID, UUID, TEXT) 
 -- 1) Columns on holidays
 ALTER TABLE holidays ADD COLUMN IF NOT EXISTS leave_type VARCHAR DEFAULT 'HOLIDAY';
 ALTER TABLE holidays ADD COLUMN IF NOT EXISTS is_quota_exempt BOOLEAN DEFAULT FALSE;
-COMMENT ON COLUMN holidays.leave_type IS 'Code from leave_types; employees can only use HOLIDAY';
-COMMENT ON COLUMN holidays.is_quota_exempt IS 'If TRUE, does not count toward personal/quota tier limits; only admin/manager/instructor_head can set';
-
 -- 2) leave_types
 CREATE TABLE IF NOT EXISTS leave_types (
   code VARCHAR PRIMARY KEY,
@@ -1773,8 +1726,6 @@ CREATE TRIGGER holidays_leave_type_guard
 ALTER TABLE meal_quota_rules
   ADD COLUMN IF NOT EXISTS user_group TEXT NOT NULL DEFAULT 'INSTRUCTOR';
 
-COMMENT ON COLUMN meal_quota_rules.user_group IS 'กลุ่มผู้ใช้สำหรับโควต้าพักอาหาร: INSTRUCTOR หรือ STAFF';
-
 -- Keep existing RLS: admin/manager manage, all roles can SELECT (from migration 016)
 
 -- Optional soft guard: new breaks default to MEAL when created via future generic inserts
@@ -1795,11 +1746,6 @@ ALTER TABLE meal_quota_rules
   ALTER COLUMN shift_id DROP NOT NULL,
   ALTER COLUMN website_id DROP NOT NULL,
   ALTER COLUMN user_group DROP NOT NULL;
-
-COMMENT ON COLUMN meal_quota_rules.branch_id IS 'NULL = ทุกสาขา';
-COMMENT ON COLUMN meal_quota_rules.shift_id IS 'NULL = ทุกกะ';
-COMMENT ON COLUMN meal_quota_rules.website_id IS 'NULL = ทุกเว็บ';
-COMMENT ON COLUMN meal_quota_rules.user_group IS 'NULL = ทุกกลุ่ม (INSTRUCTOR/STAFF)';
 
 -- 2) Helper: find max_concurrent for given dimensions and on_duty_count
 --    Precedence: more specific dimensions win (branch/shift/website/user_group).
@@ -1835,9 +1781,6 @@ AS $$
     LIMIT 1
   ), 1);
 $$;
-
-COMMENT ON FUNCTION get_meal_quota_for_group(UUID,UUID,UUID,TEXT,INT) IS
-  'เลือกโควต้าพักอาหารที่เฉพาะที่สุด ตาม branch/shift/website/user_group และ on_duty_count';
 
 -- 3) Update get_meal_capacity_break_logs to:
 --    - filter on-duty staff by user_group (role mapping)
@@ -1956,8 +1899,6 @@ CREATE TABLE IF NOT EXISTS holiday_audit_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-COMMENT ON TABLE holiday_audit_logs IS 'Audit log for holiday/leave create/update/delete by admin/manager/instructor_head';
-
 CREATE INDEX IF NOT EXISTS idx_holiday_audit_logs_created_at ON holiday_audit_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_holiday_audit_logs_target_user ON holiday_audit_logs(target_user_id);
 CREATE INDEX IF NOT EXISTS idx_holiday_audit_logs_actor ON holiday_audit_logs(actor_id);
@@ -2056,8 +1997,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION holiday_audit_log_trigger_fn() IS 'Log holiday INSERT/UPDATE/DELETE when actor is admin/manager/instructor_head';
-
 DROP TRIGGER IF EXISTS holiday_audit_log_trigger ON holidays;
 CREATE TRIGGER holiday_audit_log_trigger
   AFTER INSERT OR UPDATE OR DELETE ON holidays
@@ -2072,8 +2011,6 @@ CREATE TRIGGER holiday_audit_log_trigger
 -- 1) Optional summary column (display in list without parsing details_json)
 ALTER TABLE audit_logs
 ADD COLUMN IF NOT EXISTS summary_text TEXT;
-
-COMMENT ON COLUMN audit_logs.summary_text IS 'Short human-readable summary for list view, e.g. "เพิ่มวันลา KP วันที่ 2026-02-27"';
 
 -- 2) Indexes for filtered list + cursor pagination (created_at DESC, filters)
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at_desc ON audit_logs(created_at DESC);
@@ -2093,8 +2030,6 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
 -- 1) Add owner_id (nullable for backfill; new rows set by app)
 ALTER TABLE password_vault
   ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES profiles(id) ON DELETE CASCADE;
-
-COMMENT ON COLUMN password_vault.owner_id IS 'เจ้าของรายการ (personal vault)';
 
 -- Backfill: use created_by as owner where available
 UPDATE password_vault SET owner_id = created_by WHERE owner_id IS NULL AND created_by IS NOT NULL;
@@ -2456,8 +2391,6 @@ WHERE max_concurrent > on_duty_threshold;
 ALTER TABLE meal_quota_rules
   ADD CONSTRAINT meal_quota_rules_step CHECK (max_concurrent <= on_duty_threshold);
 
-COMMENT ON CONSTRAINT meal_quota_rules_step ON meal_quota_rules IS 'จองพร้อมกันได้ต้องไม่เกินจำนวนคนอยู่ปฏิบัติ (ขั้น)';
-
 
 -- ---------- 031_meal_quota_scope_by_website_setting.sql ----------
 -- ========== 031: ตั้งค่าโควต้าพักอาหาร — ใช้เว็บหลักเดียวกันในการนับหรือไม่ ==========
@@ -2466,8 +2399,6 @@ COMMENT ON CONSTRAINT meal_quota_rules_step ON meal_quota_rules IS 'จองพ
 
 ALTER TABLE meal_settings
   ADD COLUMN IF NOT EXISTS scope_meal_quota_by_website BOOLEAN DEFAULT true;
-
-COMMENT ON COLUMN meal_settings.scope_meal_quota_by_website IS 'true = นับและจองแยกตามเว็บหลักเดียวกัน, false = ไม่แยกเว็บ (นับเฉพาะแผนก+กะ+กลุ่ม)';
 
 
 -- ---------- 032_meal_capacity_scope_by_website_logic.sql ----------
@@ -2606,14 +2537,10 @@ $$;
 ALTER TABLE meal_settings
   ADD COLUMN IF NOT EXISTS scope_holiday_quota_by_website BOOLEAN DEFAULT true;
 
-COMMENT ON COLUMN meal_settings.scope_holiday_quota_by_website IS 'true = นับโควต้าวันหยุดแยกตามเว็บหลักเดียวกัน, false = ไม่แยกเว็บ (นับเฉพาะแผนก+กะ+กลุ่ม)';
-
 -- 2) อนุญาตมิติ 'combined' ในกติกาโควต้าวันหยุด (นับคนในแผนก+กะ+กลุ่ม+เว็บถ้าเปิด)
 ALTER TABLE holiday_quota_tiers DROP CONSTRAINT IF EXISTS holiday_quota_tiers_dimension_check;
 ALTER TABLE holiday_quota_tiers ADD CONSTRAINT holiday_quota_tiers_dimension_check
   CHECK (dimension IN ('branch', 'shift', 'website', 'combined'));
-
-COMMENT ON COLUMN holiday_quota_tiers.dimension IS 'branch/shift/website = มิติเดี่ยว (เก่า), combined = แผนก+กะ+กลุ่ม(+เว็บถ้าเปิด) นับเป็นชุดเดียวกัน';
 
 
 -- ---------- 034_apply_paired_swap.sql ----------
@@ -2735,9 +2662,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION apply_paired_swap(UUID, DATE, DATE, JSONB, TEXT) IS
-  'สลับกะจับคู่: แต่ละคนไปกะปลายทางต่างกัน ในแผนกเดียวกัน; ข้ามวันที่มีวันหยุด';
-
 GRANT EXECUTE ON FUNCTION apply_paired_swap(UUID, DATE, DATE, JSONB, TEXT) TO authenticated;
 
 
@@ -2749,8 +2673,6 @@ ALTER TABLE holiday_quota_tiers DROP CONSTRAINT IF EXISTS holiday_quota_tiers_us
 ALTER TABLE holiday_quota_tiers ALTER COLUMN user_group DROP NOT NULL;
 ALTER TABLE holiday_quota_tiers ADD CONSTRAINT holiday_quota_tiers_user_group_check
   CHECK (user_group IS NULL OR user_group IN ('INSTRUCTOR', 'STAFF', 'MANAGER'));
-
-COMMENT ON COLUMN holiday_quota_tiers.user_group IS 'NULL = ใช้กับทุกกลุ่ม; ไม่ NULL = เฉพาะกลุ่มนั้น';
 
 
 -- ---------- 036_meal_on_duty_count_without_work_logs.sql ----------
@@ -2865,9 +2787,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION get_meal_capacity_break_logs(UUID,UUID,UUID,DATE,TEXT,TIMESTAMPTZ) IS
-  'Capacity for meal slot: on_duty_count = จำนวนพนักงานที่ถือกะนั้น (แผนก+กะ+เว็บถ้าเปิด+กลุ่ม), active, ไม่หยุดอนุมัติ — ไม่ใช้ work_logs IN/OUT';
-
 
 -- ---------- 037_break_logs_meal_unique_active_only.sql ----------
 -- ========== 037: ให้จองพักอาหารซ้ำหลังยกเลิกได้ (unique เฉพาะ status = 'active') ==========
@@ -2881,8 +2800,6 @@ DROP INDEX IF EXISTS idx_break_logs_meal_user_date_round;
 CREATE UNIQUE INDEX idx_break_logs_meal_user_date_round
   ON break_logs (user_id, break_date, round_key)
   WHERE break_type = 'MEAL' AND round_key IS NOT NULL AND status = 'active';
-
-COMMENT ON INDEX idx_break_logs_meal_user_date_round IS 'หนึ่งการจอง active ต่อ user/วัน/รอบ; แถวที่ยกเลิก (ended) ไม่ block การจองซ้ำ';
 
 
 -- ---------- 038_bulk_assignment_from_profile_when_no_roster.sql ----------
@@ -3005,9 +2922,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION apply_bulk_assignment(UUID[], DATE, DATE, UUID, UUID, TEXT) IS
-  'Bulk assign: ทุกวันในช่วงจะถูกอัปเดตเป็นกะปลายทาง ยกเว้นวันที่พนักงานมีวันหยุด (approved/pending). from_branch/from_shift จาก roster หรือโปรไฟล์';
-
 
 -- ---------- 039_bulk_and_paired_swap_single_day.sql ----------
 -- ========== 039: ย้ายกะ/สลับกะมีผลแค่วันเดียว (วันที่เริ่ม = วันที่มีผล) ==========
@@ -3119,9 +3033,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION apply_bulk_assignment(UUID[], DATE, DATE, UUID, UUID, TEXT) IS
-  'ย้ายกะมีผลแค่วันเดียว: ใช้วันที่เริ่ม (p_start_date) เป็นวันที่มีผล; ถ้าวันนั้นเป็นวันหยุดอนุมัติ/รออนุมัติจะข้ามคนนั้น';
-
 -- 2) apply_paired_swap: สลับแค่วันเดียว — ใช้วันที่เริ่ม (p_start_date) เป็นวันสลับ
 CREATE OR REPLACE FUNCTION apply_paired_swap(
   p_branch_id UUID,
@@ -3229,9 +3140,6 @@ BEGIN
   );
 END;
 $$;
-
-COMMENT ON FUNCTION apply_paired_swap(UUID, DATE, DATE, JSONB, TEXT) IS
-  'สลับกะจับคู่มีผลแค่วันเดียว: ใช้วันที่เริ่ม (p_start_date) เป็นวันสลับ; ช่วงวันที่ใช้กำหนดวันนั้น';
 
 
 -- ---------- 040_cancel_and_update_scheduled_shift_change.sql ----------
@@ -3381,11 +3289,6 @@ BEGIN
   RETURN jsonb_build_object('ok', true);
 END;
 $$;
-
-COMMENT ON FUNCTION cancel_scheduled_shift_change(TEXT, UUID) IS
-  'หัวหน้ายกเลิกการตั้งเวลาย้ายกะ: ลบแถว roster ของวันนั้น + ตั้ง status = cancelled';
-COMMENT ON FUNCTION update_scheduled_shift_change(TEXT, UUID, DATE, UUID) IS
-  'หัวหน้าแก้ไขการตั้งเวลาย้ายกะ: เปลี่ยนวันที่หรือกะปลายทาง และปรับ roster';
 
 GRANT EXECUTE ON FUNCTION cancel_scheduled_shift_change(TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION update_scheduled_shift_change(TEXT, UUID, DATE, UUID) TO authenticated;
@@ -3639,22 +3542,13 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION apply_bulk_assignment(UUID[], DATE, DATE, UUID, UUID, TEXT) IS
-  'ย้ายกะมีผลแค่วันเดียว; บันทึก shift_swaps เฉพาะเมื่อ from_shift != to_shift';
-COMMENT ON FUNCTION apply_paired_swap(UUID, DATE, DATE, JSONB, TEXT) IS
-  'สลับกะจับคู่มีผลแค่วันเดียว; from_shift จาก roster หรือ profile.default_shift_id; บันทึก shift_swaps เฉพาะเมื่อ from != to';
-
 
 -- ---------- 042_schedule_cards_group_links_created_by.sql ----------
 -- ========== 042: เพิ่มคอลัมน์ผู้สร้าง (created_by) สำหรับตารางงานและกลุ่มงาน ==========
 -- file_vault มี uploaded_by อยู่แล้ว แสดงใน UI ได้เลย
 
 ALTER TABLE schedule_cards ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES profiles(id) ON DELETE SET NULL;
-COMMENT ON COLUMN schedule_cards.created_by IS 'ผู้สร้างการ์ด';
-
 ALTER TABLE group_links ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES profiles(id) ON DELETE SET NULL;
-COMMENT ON COLUMN group_links.created_by IS 'ผู้สร้างลิงก์';
-
 CREATE INDEX IF NOT EXISTS idx_schedule_cards_created_by ON schedule_cards(created_by);
 CREATE INDEX IF NOT EXISTS idx_group_links_created_by ON group_links(created_by);
 
@@ -3793,9 +3687,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION get_meal_capacity_break_logs(UUID,UUID,UUID,DATE,TEXT,TIMESTAMPTZ) IS
-  'โควต้าพักอาหาร: on_duty_count = คนที่ลงเวลาเข้า (work_logs IN) ในวันนั้น แผนก+กะ+เว็บถ้าเปิด+กลุ่ม; current_booked = จำนวนที่จองช่วงนี้ (per slot ไม่นับทั้งรอบ)';
-
 
 -- ---------- 044_meal_quota_no_work_logs_eligible_only.sql ----------
 -- ========== 044: โควต้าพักอาหาร — ไม่ใช้ IN/OUT (work_logs) ==========
@@ -3911,9 +3802,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION get_meal_capacity_break_logs(UUID,UUID,UUID,DATE,TEXT,TIMESTAMPTZ) IS
-  'โควต้าพักอาหาร: on_duty_count = คนในกลุ่ม+แผนก+กะ(+เว็บถ้าเปิด) active ไม่หยุด — ไม่ใช้ work_logs/IN-OUT; current_booked = ต่อช่วง (per slot)';
-
 
 -- ---------- 045_meal_quota_most_restrictive_tier_and_booked_users.sql ----------
 -- ========== 045: โควต้าพักอาหาร — เลือก tier ที่จำกัดที่สุด + คืนรายชื่อผู้จองแต่ละช่วง ==========
@@ -3954,9 +3842,6 @@ AS $$
     LIMIT 1
   ), 1);
 $$;
-
-COMMENT ON FUNCTION get_meal_quota_for_group(UUID,UUID,UUID,TEXT,INT) IS
-  'โควต้าพักอาหาร: เลือก tier ที่เฉพาะที่สุด แล้วเลือก max_concurrent น้อยที่สุด (จำกัดที่สุด) เมื่อหลาย tier ตรง';
 
 -- get_meal_capacity_break_logs: เพิ่ม booked_user_ids ใน return
 CREATE OR REPLACE FUNCTION get_meal_capacity_break_logs(
@@ -4090,9 +3975,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION get_meal_capacity_break_logs(UUID,UUID,UUID,DATE,TEXT,TIMESTAMPTZ) IS
-  'โควต้าพักอาหาร: on_duty_count, max_concurrent, current_booked, booked_user_ids (รายชื่อ user_id ที่จองช่วงนี้)';
-
 
 -- ---------- 046_meal_on_duty_user_ids_in_slots_response.sql ----------
 -- ========== 046: คืนรายชื่อคนที่ระบบนับเป็น "อยู่ปฏิบัติ" ใน get_meal_slots_unified ==========
@@ -4173,9 +4055,6 @@ BEGIN
   RETURN COALESCE(v_result, '[]'::JSONB);
 END;
 $$;
-
-COMMENT ON FUNCTION get_meal_on_duty_user_ids(DATE) IS
-  'รายการ user_id ที่ระบบนับเป็น "อยู่ปฏิบัติ" สำหรับโควต้าพักอาหาร (กลุ่ม+แผนก+กะ+เว็บถ้าเปิด)';
 
 -- เพิ่ม on_duty_user_ids ใน return ของ get_meal_slots_unified
 CREATE OR REPLACE FUNCTION get_meal_slots_unified(p_work_date DATE)
@@ -4429,9 +4308,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION get_meal_capacity_break_logs(UUID,UUID,UUID,DATE,TEXT,TIMESTAMPTZ) IS
-  'โควต้าพักอาหาร: เมื่อคนอยู่ปฏิบัติ ≤ 4 บังคับ max_concurrent สูงสุด 1';
-
 
 -- ---------- 048_meal_quota_use_tier_only_no_hardcap.sql ----------
 -- ========== 048: ใช้เงื่อนไขจากตารางโควต้าเท่านั้น (ไม่บังคับแค่ 1) ==========
@@ -4568,9 +4444,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION get_meal_capacity_break_logs(UUID,UUID,UUID,DATE,TEXT,TIMESTAMPTZ) IS
-  'โควต้าพักอาหาร: ใช้ค่าจากตาราง tier เท่านั้น (get_meal_quota_for_group — เลือก tier ที่จำกัดที่สุดเมื่อหลาย tier ตรง)';
-
 
 -- ---------- 049_meal_quota_min_concurrent_among_matching_tiers.sql ----------
 -- ========== 049: โควต้าพักอาหาร — ใช้ MIN(max_concurrent) ใน tier ที่ตรงเสมอ ==========
@@ -4616,9 +4489,6 @@ AS $$
     1
   );
 $$;
-
-COMMENT ON FUNCTION get_meal_quota_for_group(UUID,UUID,UUID,TEXT,INT) IS
-  'โควต้าพักอาหาร: ในชุด rule ที่เฉพาะที่สุด (branch/shift/website/user_group) เลือก MIN(max_concurrent) ใน tier ที่ตรง — จำกัดที่สุดเสมอ (เช่น 2 คน ตรง ≤4 และ ≤7 ได้ 1 คน)';
 
 
 -- ---------- 050_apply_paired_swap_fix_ambiguous_uid.sql ----------
@@ -4742,9 +4612,6 @@ BEGIN
   );
 END;
 $$;
-
-COMMENT ON FUNCTION apply_paired_swap(UUID, DATE, DATE, JSONB, TEXT) IS
-  'สลับกะจับคู่มีผลแค่วันเดียว; from จาก roster หรือ profile; วันที่มีวันหยุด/ลา (approved/pending) จะไม่ย้ายกะ; แก้ ambiguous uid';
 
 
 -- ---------- 051_block_scheduled_users_bulk_paired.sql ----------
@@ -5000,11 +4867,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION apply_bulk_assignment(UUID[], DATE, DATE, UUID, UUID, TEXT) IS
-  'ย้ายกะมีผลแค่วันเดียว; ข้ามคนที่กำลังถูกตั้งเวลาย้ายกะอยู่ (approved, start_date>=วันนี้); บันทึก shift_swaps เฉพาะเมื่อ from!=to';
-COMMENT ON FUNCTION apply_paired_swap(UUID, DATE, DATE, JSONB, TEXT) IS
-  'สลับกะจับคู่มีผลแค่วันเดียว; ข้ามคนที่กำลังถูกตั้งเวลาย้ายกะอยู่ (approved, start_date>=วันนี้); from จาก roster หรือ profile';
-
 
 -- ---------- 052_group_links_creator_see_and_department_filter_all.sql ----------
 -- ========== 052: ลิงก์กลุ่ม — ผู้สร้างเห็นเสมอ + ตัวกรองแผนกเลือกทั้งหมดได้ ==========
@@ -5024,8 +4886,6 @@ CREATE POLICY group_links_select ON group_links FOR SELECT TO authenticated USIN
     AND (visible_roles IS NULL OR array_length(visible_roles, 1) IS NULL OR (SELECT role::text FROM profiles WHERE id = auth.uid()) = ANY(visible_roles))
   )
 );
-
-COMMENT ON COLUMN group_links.created_by IS 'ผู้สร้างลิงก์ — เห็นลิงก์ของตัวเองเสมอ (RLS)';
 
 
 -- ---------- 053_group_links_head_see_all_like_schedule_cards.sql ----------
@@ -5120,9 +4980,6 @@ CREATE POLICY transfers_select ON cross_branch_transfers FOR SELECT TO authentic
   OR to_branch_id IN (SELECT user_branch_ids(auth.uid()))
 );
 
-COMMENT ON POLICY shift_swaps_select ON shift_swaps IS 'แอดมิน/ผู้จัดการเห็นทั้งหมด; หัวหน้าเห็นของแผนกตัวเอง; พนักงานเห็นของตัวเอง';
-COMMENT ON POLICY transfers_select ON cross_branch_transfers IS 'แอดมิน/ผู้จัดการเห็นทั้งหมด; หัวหน้าเห็นที่เกี่ยวข้องแผนกตัวเอง; พนักงานเห็นของตัวเอง';
-
 
 -- ---------- 055_block_change_shift_when_scheduled.sql ----------
 -- ========== 055: ห้ามเปลี่ยนกะในจัดการสมาชิกเมื่อพนักงานถูกตั้งเวลาย้ายกะอยู่ ==========
@@ -5165,8 +5022,6 @@ CREATE TRIGGER block_change_shift_when_scheduled
   BEFORE UPDATE ON profiles
   FOR EACH ROW
   EXECUTE PROCEDURE check_no_scheduled_shift_change_on_profile_update();
-
-COMMENT ON FUNCTION check_no_scheduled_shift_change_on_profile_update() IS 'ห้ามอัปเดต default_shift_id เมื่อ user มีรายการตั้งเวลาย้ายกะ (approved, start_date>=วันนี้)';
 
 
 -- ---------- 056_shift_swaps_head_see_null_branch_by_user.sql ----------
@@ -5345,7 +5200,4 @@ DROP POLICY IF EXISTS audit_logs_select ON audit_logs;
 CREATE POLICY audit_logs_select ON audit_logs FOR SELECT TO authenticated USING (
   is_admin_or_manager_or_head() OR (actor_id = auth.uid()) OR is_instructor_or_admin()
 );
-
-COMMENT ON FUNCTION user_branch_ids(UUID) IS 'admin/manager/หัวหน้า = ทุกสาขา; คนอื่น = default_branch + transfer branches';
-COMMENT ON FUNCTION is_admin_or_manager_or_head() IS 'admin, manager, หัวหน้าพนักงานประจำ (ใช้ใน policy ที่ให้หัวหน้าเห็น/จัดการเท่าผู้จัดการ)';
 

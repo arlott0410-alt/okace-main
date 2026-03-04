@@ -28,9 +28,6 @@ AS $$
   );
 $$;
 
-COMMENT ON FUNCTION get_meal_quota_for_group(UUID,UUID,UUID,TEXT,INT) IS
-  'โควต้าพักอาหาร: ใช้ MIN(max_concurrent) จากทุก rule ที่ dimension ตรงและ on_duty_threshold >= count — จำกัดที่สุดเสมอ (เช่น 2 คน ใช้ tier ≤4 ได้ 1 คน)';
-
 -- บังคับให้ get_meal_capacity_break_logs คำนวณ max_concurrent แบบขั้น (MIN) ในตัว — เหมือนกติกาโควต้าวันหยุด
 CREATE OR REPLACE FUNCTION get_meal_capacity_break_logs(
   p_branch_id UUID,
@@ -126,6 +123,3 @@ BEGIN
   );
 END;
 $$;
-
-COMMENT ON FUNCTION get_meal_capacity_break_logs(UUID,UUID,UUID,DATE,TEXT,TIMESTAMPTZ) IS
-  'โควต้าพักอาหาร: ขั้นเหมือนโควต้าวันหยุด — MIN(max_concurrent) จากทุก tier ที่ตรงกับคนอยู่ปฏิบัติ';

@@ -78,9 +78,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION get_meal_on_duty_user_ids(DATE) IS
-  'รายการ user_id ที่ระบบนับเป็น "อยู่ปฏิบัติ" สำหรับโควต้าพักอาหาร — แผนก+กะ+เว็บถ้าเปิด ลบคนที่ตารางวันหยุดมีวันนั้น (approved/pending)';
-
 CREATE OR REPLACE FUNCTION get_meal_capacity_break_logs(
   p_branch_id UUID,
   p_shift_id UUID,
@@ -211,6 +208,3 @@ BEGIN
   );
 END;
 $$;
-
-COMMENT ON FUNCTION get_meal_capacity_break_logs(UUID,UUID,UUID,DATE,TEXT,TIMESTAMPTZ) IS
-  'โควต้าพักอาหาร: คนอยู่ปฏิบัติจากตารางวันหยุด (approved+pending), กติกา tier แบบ realtime';

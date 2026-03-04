@@ -30,9 +30,6 @@ AS $$
   );
 $$;
 
-COMMENT ON FUNCTION get_meal_quota_for_group(UUID,UUID,UUID,TEXT,INT) IS
-  'โควต้าพักอาหาร: ใช้ขั้นที่น้อยที่สุดก่อน — เลือก tier ที่ on_duty_threshold น้อยที่สุดที่ >= count แล้วใช้ max_concurrent ของขั้นนั้น (เช่น 2 คน → tier ≤4 → จองได้ 1 คน)';
-
 CREATE OR REPLACE FUNCTION get_meal_capacity_break_logs(
   p_branch_id UUID,
   p_shift_id UUID,
@@ -139,6 +136,3 @@ BEGIN
   );
 END;
 $$;
-
-COMMENT ON FUNCTION get_meal_capacity_break_logs(UUID,UUID,UUID,DATE,TEXT,TIMESTAMPTZ) IS
-  'โควต้าพักอาหาร: นับแค่คนอยู่หน้างาน (แผนก+กะ+กลุ่ม+เว็บถ้าเปิด, active, ไม่หยุด) — ยึดขั้นที่น้อยที่สุดก่อน (tier แรกที่เข้าเงื่อนไข)';

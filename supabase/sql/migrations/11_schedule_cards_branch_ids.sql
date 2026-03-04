@@ -2,8 +2,6 @@
 -- ตารางงาน: หนึ่งการ์ดหนึ่งแถว เก็บหลายแผนกใน branch_ids (ไม่สร้างหลายแถวต่อหลายแผนก)
 
 ALTER TABLE schedule_cards ADD COLUMN IF NOT EXISTS branch_ids UUID[] DEFAULT NULL;
-COMMENT ON COLUMN schedule_cards.branch_ids IS 'แผนกที่เห็นการ์ดได้ (หลายรายการ); null หรือ {} = ใช้ branch_id เดิม';
-
 -- backfill จาก branch_id เดิม
 UPDATE schedule_cards
 SET branch_ids = ARRAY[branch_id]

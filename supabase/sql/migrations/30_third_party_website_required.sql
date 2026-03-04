@@ -20,8 +20,6 @@ ALTER TABLE third_party_providers
   ADD CONSTRAINT third_party_providers_website_id_fkey
   FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE;
 
-COMMENT ON COLUMN third_party_providers.website_id IS 'บังคับผูกเว็บ — ทุก provider ต้องอยู่ภายใต้เว็บเดียว';
-
 -- 3) ปรับ RLS policies ให้บังคับตามเว็บ (มองเห็น/จัดการได้เฉพาะเว็บที่ user ถูก assign)
 DROP POLICY IF EXISTS third_party_providers_select ON third_party_providers;
 DROP POLICY IF EXISTS third_party_providers_insert ON third_party_providers;

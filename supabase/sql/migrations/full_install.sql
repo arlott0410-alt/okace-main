@@ -1,4 +1,4 @@
-﻿CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 DO $$ BEGIN
   CREATE TYPE app_role AS ENUM ('admin', 'manager', 'instructor_head', 'instructor', 'staff');
@@ -1545,7 +1545,6 @@ AS $$
   ORDER BY u.created_at DESC
   LIMIT 1;
 $$;
-IS 'ใช้สำหรับหน้าเข้าสู่ระบบ: แปลงชื่อผู้ใช้/อีเมล เป็น auth.users.email (JOIN profiles เพื่อเช็ค active)';
 GRANT EXECUTE ON FUNCTION public.get_email_for_login(TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.get_email_for_login(TEXT) TO authenticated;
 CREATE OR REPLACE FUNCTION profiles_guard_admin_manager_role()
@@ -2306,7 +2305,6 @@ BEGIN
   );
 END;
 $$;
-  'Bulk assign roster for date range; skips dates with approved/pending holiday. Caller must be admin/manager/instructor_head.';
 ALTER TABLE holidays ADD COLUMN IF NOT EXISTS leave_type VARCHAR DEFAULT 'HOLIDAY';
 ALTER TABLE holidays ADD COLUMN IF NOT EXISTS is_quota_exempt BOOLEAN DEFAULT FALSE;
 CREATE TABLE IF NOT EXISTS leave_types (
@@ -2391,7 +2389,6 @@ AS $$
     LIMIT 1
   ), 1);
 $$;
-  'เลือกโควต้าพักอาหารที่เฉพาะที่สุด ตาม branch/shift/website/user_group และ on_duty_count';
 CREATE OR REPLACE FUNCTION get_meal_capacity_break_logs(
   p_branch_id UUID,
   p_shift_id UUID,
@@ -3084,7 +3081,6 @@ BEGIN
   );
 END;
 $$;
-  'สลับกะจับคู่: แต่ละคนไปกะปลายทางต่างกัน ในแผนกเดียวกัน; ข้ามวันที่มีวันหยุด';
 GRANT EXECUTE ON FUNCTION apply_paired_swap(UUID, DATE, DATE, JSONB, TEXT) TO authenticated;
 ALTER TABLE holiday_quota_tiers DROP CONSTRAINT IF EXISTS holiday_quota_tiers_user_group_check;
 ALTER TABLE holiday_quota_tiers ALTER COLUMN user_group DROP NOT NULL;
@@ -3187,7 +3183,6 @@ BEGIN
   );
 END;
 $$;
-  'Capacity for meal slot: on_duty_count = จำนวนพนักงานที่ถือกะนั้น (แผนก+กะ+เว็บถ้าเปิด+กลุ่ม), active, ไม่หยุดอนุมัติ — ไม่ใช้ work_logs IN/OUT';
 DROP INDEX IF EXISTS idx_break_logs_meal_user_date_round;
 CREATE UNIQUE INDEX idx_break_logs_meal_user_date_round
   ON break_logs (user_id, break_date, round_key)
@@ -3298,7 +3293,6 @@ BEGIN
   );
 END;
 $$;
-  'Bulk assign: ทุกวันในช่วงจะถูกอัปเดตเป็นกะปลายทาง ยกเว้นวันที่พนักงานมีวันหยุด (approved/pending). from_branch/from_shift จาก roster หรือโปรไฟล์';
 CREATE OR REPLACE FUNCTION apply_bulk_assignment(
   p_employee_ids UUID[],
   p_start_date DATE,
@@ -3393,7 +3387,6 @@ BEGIN
   );
 END;
 $$;
-  'ย้ายกะมีผลแค่วันเดียว: ใช้วันที่เริ่ม (p_start_date) เป็นวันที่มีผล; ถ้าวันนั้นเป็นวันหยุดอนุมัติ/รออนุมัติจะข้ามคนนั้น';
 CREATE OR REPLACE FUNCTION apply_paired_swap(
   p_branch_id UUID,
   p_start_date DATE,
@@ -3490,7 +3483,6 @@ BEGIN
   );
 END;
 $$;
-  'สลับกะจับคู่มีผลแค่วันเดียว: ใช้วันที่เริ่ม (p_start_date) เป็นวันสลับ; ช่วงวันที่ใช้กำหนดวันนั้น';
 CREATE OR REPLACE FUNCTION cancel_scheduled_shift_change(p_type TEXT, p_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -3621,8 +3613,6 @@ BEGIN
   RETURN jsonb_build_object('ok', true);
 END;
 $$;
-  'หัวหน้ายกเลิกการตั้งเวลาย้ายกะ: ลบแถว roster ของวันนั้น + ตั้ง status = cancelled';
-  'หัวหน้าแก้ไขการตั้งเวลาย้ายกะ: เปลี่ยนวันที่หรือกะปลายทาง และปรับ roster';
 GRANT EXECUTE ON FUNCTION cancel_scheduled_shift_change(TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION update_scheduled_shift_change(TEXT, UUID, DATE, UUID) TO authenticated;
 UPDATE shift_swaps s
@@ -3839,8 +3829,6 @@ BEGIN
   );
 END;
 $$;
-  'ย้ายกะมีผลแค่วันเดียว; บันทึก shift_swaps เฉพาะเมื่อ from_shift != to_shift';
-  'สลับกะจับคู่มีผลแค่วันเดียว; from_shift จาก roster หรือ profile.default_shift_id; บันทึก shift_swaps เฉพาะเมื่อ from != to';
 ALTER TABLE schedule_cards ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES profiles(id) ON DELETE SET NULL;
 ALTER TABLE group_links ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES profiles(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_schedule_cards_created_by ON schedule_cards(created_by);
@@ -3962,7 +3950,6 @@ BEGIN
   );
 END;
 $$;
-  'โควต้าพักอาหาร: on_duty_count = คนที่ลงเวลาเข้า (work_logs IN) ในวันนั้น แผนก+กะ+เว็บถ้าเปิด+กลุ่ม; current_booked = จำนวนที่จองช่วงนี้ (per slot ไม่นับทั้งรอบ)';
 CREATE OR REPLACE FUNCTION get_meal_capacity_break_logs(
   p_branch_id UUID,
   p_shift_id UUID,
@@ -4062,7 +4049,6 @@ BEGIN
   );
 END;
 $$;
-  'โควต้าพักอาหาร: on_duty_count = คนในกลุ่ม+แผนก+กะ(+เว็บถ้าเปิด) active ไม่หยุด — ไม่ใช้ work_logs/IN-OUT; current_booked = ต่อช่วง (per slot)';
 CREATE OR REPLACE FUNCTION get_meal_quota_for_group(
   p_branch_id UUID,
   p_shift_id UUID,
@@ -4096,7 +4082,6 @@ AS $$
     LIMIT 1
   ), 1);
 $$;
-  'โควต้าพักอาหาร: เลือก tier ที่เฉพาะที่สุด แล้วเลือก max_concurrent น้อยที่สุด (จำกัดที่สุด) เมื่อหลาย tier ตรง';
 CREATE OR REPLACE FUNCTION get_meal_capacity_break_logs(
   p_branch_id UUID,
   p_shift_id UUID,
@@ -4219,7 +4204,6 @@ BEGIN
   );
 END;
 $$;
-  'โควต้าพักอาหาร: on_duty_count, max_concurrent, current_booked, booked_user_ids (รายชื่อ user_id ที่จองช่วงนี้)';
 CREATE OR REPLACE FUNCTION get_meal_on_duty_user_ids(p_work_date DATE)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -4291,7 +4275,6 @@ BEGIN
   RETURN COALESCE(v_result, '[]'::JSONB);
 END;
 $$;
-  'รายการ user_id ที่ระบบนับเป็น "อยู่ปฏิบัติ" สำหรับโควต้าพักอาหาร (กลุ่ม+แผนก+กะ+เว็บถ้าเปิด)';
 CREATE OR REPLACE FUNCTION get_meal_slots_unified(p_work_date DATE)
 RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public STABLE AS $$
 DECLARE
@@ -4517,7 +4500,6 @@ BEGIN
   );
 END;
 $$;
-  'โควต้าพักอาหาร: เมื่อคนอยู่ปฏิบัติ ≤ 4 บังคับ max_concurrent สูงสุด 1';
 CREATE OR REPLACE FUNCTION get_meal_capacity_break_logs(
   p_branch_id UUID,
   p_shift_id UUID,
@@ -4640,7 +4622,6 @@ BEGIN
   );
 END;
 $$;
-  'โควต้าพักอาหาร: ใช้ค่าจากตาราง tier เท่านั้น (get_meal_quota_for_group — เลือก tier ที่จำกัดที่สุดเมื่อหลาย tier ตรง)';
 CREATE OR REPLACE FUNCTION get_meal_quota_for_group(
   p_branch_id UUID,
   p_shift_id UUID,
@@ -4679,7 +4660,6 @@ AS $$
     1
   );
 $$;
-  'โควต้าพักอาหาร: ในชุด rule ที่เฉพาะที่สุด (branch/shift/website/user_group) เลือก MIN(max_concurrent) ใน tier ที่ตรง — จำกัดที่สุดเสมอ (เช่น 2 คน ตรง ≤4 และ ≤7 ได้ 1 คน)';
 CREATE OR REPLACE FUNCTION apply_paired_swap(
   p_branch_id UUID,
   p_start_date DATE,
@@ -4782,7 +4762,6 @@ BEGIN
   );
 END;
 $$;
-  'สลับกะจับคู่มีผลแค่วันเดียว; from จาก roster หรือ profile; วันที่มีวันหยุด/ลา (approved/pending) จะไม่ย้ายกะ; แก้ ambiguous uid';
 CREATE OR REPLACE FUNCTION apply_bulk_assignment(
   p_employee_ids UUID[],
   p_start_date DATE,
@@ -5005,8 +4984,6 @@ BEGIN
   );
 END;
 $$;
-  'ย้ายกะมีผลแค่วันเดียว; ข้ามคนที่กำลังถูกตั้งเวลาย้ายกะอยู่ (approved, start_date>=วันนี้); บันทึก shift_swaps เฉพาะเมื่อ from!=to';
-  'สลับกะจับคู่มีผลแค่วันเดียว; ข้ามคนที่กำลังถูกตั้งเวลาย้ายกะอยู่ (approved, start_date>=วันนี้); from จาก roster หรือ profile';
 DROP POLICY IF EXISTS group_links_select ON group_links;
 CREATE POLICY group_links_select ON group_links FOR SELECT TO authenticated USING (
   created_by = auth.uid()
@@ -5400,7 +5377,6 @@ BEGIN
   RETURN updated_count;
 END;
 $$;
-  'อัปเดต profiles.default_shift_id และ default_branch_id ตามย้ายกะ/สลับกะที่ approved และ p_date อยู่ใน [start_date, end_date]. เรียกทุกวัน (cron) หรือรันมือกับ current_date.';
 GRANT EXECUTE ON FUNCTION apply_scheduled_shift_changes_for_date(DATE) TO authenticated;
 GRANT EXECUTE ON FUNCTION apply_scheduled_shift_changes_for_date(DATE) TO service_role;
 
@@ -5480,7 +5456,6 @@ BEGIN
   RETURN COALESCE(v_result, '[]'::JSONB);
 END;
 $$;
-  'รายการ user_id ที่ระบบนับเป็น "อยู่ปฏิบัติ" สำหรับโควต้าพักอาหาร — แผนก+กะ+เว็บถ้าเปิด ลบคนที่ตารางวันหยุดมีวันนั้น (approved/pending)';
 CREATE OR REPLACE FUNCTION get_meal_capacity_break_logs(
   p_branch_id UUID,
   p_shift_id UUID,
@@ -5603,7 +5578,6 @@ BEGIN
   );
 END;
 $$;
-  'โควต้าพักอาหาร: คนอยู่ปฏิบัติจากตารางวันหยุด (approved+pending), กติกา tier แบบ realtime';
 
 CREATE OR REPLACE FUNCTION delete_audit_logs_older_than_days(p_days INT DEFAULT 7)
 RETURNS BIGINT
@@ -5628,7 +5602,6 @@ BEGIN
   RETURN v_deleted;
 END;
 $$;
-  'ลบ audit_logs ที่ created_at เก่ากว่า p_days วัน คืนจำนวนแถวที่ลบ — ใช้กับ Cron รายวัน (เช่น 7 วัน)';
 
 CREATE OR REPLACE FUNCTION get_meal_quota_for_group(
   p_branch_id UUID,
@@ -5655,7 +5628,6 @@ AS $$
     1
   );
 $$;
-  'โควต้าพักอาหาร: ใช้ MIN(max_concurrent) จากทุก rule ที่ dimension ตรงและ on_duty_threshold >= count — จำกัดที่สุดเสมอ (เช่น 2 คน ใช้ tier ≤4 ได้ 1 คน)';
 CREATE OR REPLACE FUNCTION get_meal_capacity_break_logs(
   p_branch_id UUID,
   p_shift_id UUID,
@@ -5741,7 +5713,6 @@ BEGIN
   );
 END;
 $$;
-  'โควต้าพักอาหาร: ขั้นเหมือนโควต้าวันหยุด — MIN(max_concurrent) จากทุก tier ที่ตรงกับคนอยู่ปฏิบัติ';
 
 ALTER TABLE schedule_cards ADD COLUMN IF NOT EXISTS branch_ids UUID[] DEFAULT NULL;
 UPDATE schedule_cards
@@ -6025,7 +5996,6 @@ AS $$
     1
   );
 $$;
-  'โควต้าพักอาหาร: ใช้ขั้นที่น้อยที่สุดก่อน — เลือก tier ที่ on_duty_threshold น้อยที่สุดที่ >= count แล้วใช้ max_concurrent ของขั้นนั้น (เช่น 2 คน → tier ≤4 → จองได้ 1 คน)';
 CREATE OR REPLACE FUNCTION get_meal_capacity_break_logs(
   p_branch_id UUID,
   p_shift_id UUID,
@@ -6121,7 +6091,6 @@ BEGIN
   );
 END;
 $$;
-  'โควต้าพักอาหาร: นับแค่คนอยู่หน้างาน (แผนก+กะ+กลุ่ม+เว็บถ้าเปิด, active, ไม่หยุด) — ยึดขั้นที่น้อยที่สุดก่อน (tier แรกที่เข้าเงื่อนไข)';
 
 ALTER TABLE public.duty_assignments
   DROP CONSTRAINT IF EXISTS duty_assignments_branch_id_shift_id_duty_role_id_assignment_date_key;
@@ -6216,7 +6185,6 @@ BEGIN
   RETURN updated_count;
 END;
 $$;
-  'อัปเดต profiles ตามย้ายกะ/สลับกะที่ approved และ p_date อยู่ใน [start_date, end_date] (end_date NULL = ถาวร). เลือกรายการล่าสุดต่อ user. Idempotent. เรียกจาก Cron 00:01 Asia/Bangkok.';
 CREATE OR REPLACE FUNCTION apply_bulk_assignment(
   p_employee_ids UUID[],
   p_start_date DATE,
@@ -6302,7 +6270,6 @@ BEGIN
   );
 END;
 $$;
-  'ย้ายกะแบบถาวร (end_date NULL). start_date ต้อง >= พรุ่งนี้. ไม่แก้ roster; Cron apply อัปเดต profile. ข้ามคนที่มีรายการ approved ค้างอยู่.';
 CREATE OR REPLACE FUNCTION apply_paired_swap(
   p_branch_id UUID,
   p_start_date DATE,
@@ -6398,7 +6365,6 @@ BEGIN
   );
 END;
 $$;
-  'สลับกะจับคู่แบบถาวร (end_date NULL). start_date ต้อง >= พรุ่งนี้. กัน overlap กับรายการที่ยังมีผล.';
 CREATE OR REPLACE FUNCTION update_scheduled_shift_change(
   p_type TEXT,
   p_id UUID,
@@ -6459,7 +6425,6 @@ BEGIN
   RETURN jsonb_build_object('ok', true);
 END;
 $$;
-  'แก้ไขการตั้งเวลาย้ายกะ: วันที่ใหม่ต้อง >= พรุ่งนี้, end_date = NULL (ถาวร).';
 CREATE TABLE IF NOT EXISTS cron_runs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_name TEXT NOT NULL,
@@ -6537,7 +6502,6 @@ LEFT JOIN holidays_today h ON h.user_id = p.id
 LEFT JOIN meal_today m ON m.user_id = p.id
 WHERE p.active = true
   AND p.role IN ('instructor', 'staff', 'instructor_head');
-  'พนักงานวันนี้จากตารางวันหยุด: PRESENT = ไม่มีแถว holidays วันนี้, LEAVE = มีแถว holidays (approved/pending). จองพักอาหารจาก break_logs MEAL. ใช้ในแดชบอร์ด Supervisor/Manager/Admin. Timezone Asia/Bangkok.';
 GRANT SELECT ON dashboard_today_staff TO authenticated;
 
 DROP VIEW IF EXISTS dashboard_today_staff CASCADE;
@@ -6590,7 +6554,6 @@ LEFT JOIN holidays_today h ON h.user_id = p.id
 LEFT JOIN meal_all_today m ON m.user_id = p.id
 WHERE p.active = true
   AND p.role IN ('instructor', 'staff', 'instructor_head');
-  'พนักงานวันนี้จากตารางวันหยุด. meal_slots = ทุกช่วงจองพักอาหาร (array). Timezone Asia/Bangkok.';
 GRANT SELECT ON dashboard_today_staff TO authenticated;
 
 CREATE INDEX IF NOT EXISTS idx_holidays_holiday_date_user_id ON holidays(holiday_date, user_id);
@@ -6646,7 +6609,6 @@ AS $$
   SELECT p_fallback_branch, p_fallback_shift
   WHERE NOT EXISTS (SELECT 1 FROM best);
 $$;
-  'Effective branch_id and shift_id for a user on a date from approved shift_swaps/cross_branch_transfers; fallback from profile.';
 CREATE OR REPLACE FUNCTION rpc_manager_dashboard_today(
   p_today date DEFAULT ((now() AT TIME ZONE 'Asia/Bangkok')::date),
   p_scope_branch_id uuid DEFAULT NULL,
@@ -6714,7 +6676,6 @@ AS $$
     AND (p_scope_shift_id IS NULL OR b.eff_shift_id = p_scope_shift_id)
   ORDER BY b.status, b.name NULLS LAST;
 $$;
-  'Today overview for Supervisor/Manager/Admin: Name, Shift, Status (PRESENT/LEAVE), leave type/reason, meal slots. Optional scope by branch and/or shift. Asia/Bangkok.';
 
 CREATE OR REPLACE FUNCTION rpc_dutyboard(
   p_date date,
@@ -6792,7 +6753,6 @@ BEGIN
     (SELECT j FROM ws);
 END;
 $$;
-  'Single-call payload for DutyBoard: duty_roles, assignments, staff (with effective branch/shift for date), leave_user_ids, roster_status, websites.';
 CREATE OR REPLACE FUNCTION rpc_holiday_grid(
   p_month_start date,
   p_month_end date,
@@ -6858,7 +6818,6 @@ BEGIN
   SELECT (SELECT j FROM staff_list), (SELECT j FROM hol);
 END;
 $$;
-  'Single-call payload for HolidayGrid: staff (minimal + primary_website_id), holidays in range (DISTINCT ON user_id, holiday_date).';
 CREATE INDEX IF NOT EXISTS idx_holidays_user_id_holiday_date ON holidays(user_id, holiday_date);
 
 ALTER TABLE public.duty_assignments
@@ -7026,7 +6985,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-  'ห้ามอัปเดต default_shift_id เมื่อ user มีรายการตั้งเวลาย้ายกะ (approved, start_date>=วันนี้) — ยกเว้นเมื่อค่าใหม่ตรงกับ to_shift_id ที่มีผลวันนี้ (ให้ apply_scheduled_shift_changes_for_date อัปเดตได้)';
 
 UPDATE holidays SET leave_type = 'X' WHERE leave_type = 'HOLIDAY' OR leave_type IS NULL;
 ALTER TABLE holidays ALTER COLUMN leave_type SET DEFAULT 'X';

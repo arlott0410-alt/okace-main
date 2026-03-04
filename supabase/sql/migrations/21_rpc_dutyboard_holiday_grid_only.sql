@@ -82,9 +82,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION rpc_dutyboard(date, uuid, uuid) IS
-  'Single-call payload for DutyBoard: duty_roles, assignments, staff (with effective branch/shift for date), leave_user_ids, roster_status, websites.';
-
 -- ---------- rpc_holiday_grid: one call for HolidayGrid monthly view ----------
 CREATE OR REPLACE FUNCTION rpc_holiday_grid(
   p_month_start date,
@@ -151,9 +148,6 @@ BEGIN
   SELECT (SELECT j FROM staff_list), (SELECT j FROM hol);
 END;
 $$;
-
-COMMENT ON FUNCTION rpc_holiday_grid(date, date, uuid, uuid) IS
-  'Single-call payload for HolidayGrid: staff (minimal + primary_website_id), holidays in range (DISTINCT ON user_id, holiday_date).';
 
 -- ---------- Indexes (STEP 5): ensure fast lookups for RPCs and direct queries ----------
 -- holidays: reverse lookup by user (HolidayGrid "only my data", leave_ids in rpc_dutyboard)

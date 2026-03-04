@@ -9,5 +9,3 @@ DROP POLICY IF EXISTS group_links_insert ON group_links;
 CREATE POLICY group_links_insert ON group_links FOR INSERT TO authenticated WITH CHECK (
   is_admin() OR is_manager() OR is_instructor_head()
 );
-
-COMMENT ON POLICY group_links_insert ON group_links IS 'แอดมิน/ผู้จัดการ/หัวหน้า เพิ่มลิงก์ได้ทุกแผนก (หัวหน้า=ผู้จัดการสำหรับกลุ่มงาน)';

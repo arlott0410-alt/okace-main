@@ -55,8 +55,5 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION apply_scheduled_shift_changes_for_date(DATE) IS
-  'อัปเดต profiles.default_shift_id และ default_branch_id ตามย้ายกะ/สลับกะที่ approved และ p_date อยู่ใน [start_date, end_date]. เรียกทุกวัน (cron) หรือรันมือกับ current_date.';
-
 GRANT EXECUTE ON FUNCTION apply_scheduled_shift_changes_for_date(DATE) TO authenticated;
 GRANT EXECUTE ON FUNCTION apply_scheduled_shift_changes_for_date(DATE) TO service_role;

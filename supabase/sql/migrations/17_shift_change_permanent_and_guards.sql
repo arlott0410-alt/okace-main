@@ -16,9 +16,6 @@ ALTER TABLE shift_swaps
 ALTER TABLE cross_branch_transfers
   ALTER COLUMN end_date DROP NOT NULL;
 
-COMMENT ON COLUMN shift_swaps.end_date IS 'NULL = ถาวร (มีผลจาก start_date เป็นต้นไปจนกว่าจะมีรายการใหม่)';
-COMMENT ON COLUMN cross_branch_transfers.end_date IS 'NULL = ถาวร (มีผลจาก start_date เป็นต้นไปจนกว่าจะมีรายการใหม่)';
-
 -- -----------------------------------------------------------------------------
 -- Helper: วันพรุ่งนี้ใน timezone Asia/Bangkok
 -- -----------------------------------------------------------------------------
@@ -118,9 +115,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION apply_scheduled_shift_changes_for_date(DATE) IS
-  'อัปเดต profiles ตามย้ายกะ/สลับกะที่ approved และ p_date อยู่ใน [start_date, end_date] (end_date NULL = ถาวร). เลือกรายการล่าสุดต่อ user. Idempotent. เรียกจาก Cron 00:01 Asia/Bangkok.';
-
 -- -----------------------------------------------------------------------------
 -- C) apply_bulk_assignment: validate start_date >= tomorrow, insert ถาวร (end_date NULL), ไม่แก้ roster
 -- -----------------------------------------------------------------------------
@@ -214,9 +208,6 @@ BEGIN
   );
 END;
 $$;
-
-COMMENT ON FUNCTION apply_bulk_assignment(UUID[], DATE, DATE, UUID, UUID, TEXT) IS
-  'ย้ายกะแบบถาวร (end_date NULL). start_date ต้อง >= พรุ่งนี้. ไม่แก้ roster; Cron apply อัปเดต profile. ข้ามคนที่มีรายการ approved ค้างอยู่.';
 
 -- -----------------------------------------------------------------------------
 -- D) apply_paired_swap: validate start_date >= tomorrow, insert ถาวร, กัน overlap
@@ -326,9 +317,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION apply_paired_swap(UUID, DATE, DATE, JSONB, TEXT) IS
-  'สลับกะจับคู่แบบถาวร (end_date NULL). start_date ต้อง >= พรุ่งนี้. กัน overlap กับรายการที่ยังมีผล.';
-
 -- -----------------------------------------------------------------------------
 -- E) update_scheduled_shift_change: validate p_new_start_date >= tomorrow, set end_date = NULL
 -- -----------------------------------------------------------------------------
@@ -395,9 +383,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION update_scheduled_shift_change(TEXT, UUID, DATE, UUID) IS
-  'แก้ไขการตั้งเวลาย้ายกะ: วันที่ใหม่ต้อง >= พรุ่งนี้, end_date = NULL (ถาวร).';
-
 -- -----------------------------------------------------------------------------
 -- F) cron_runs table for logging (optional debug)
 -- -----------------------------------------------------------------------------
@@ -410,8 +395,6 @@ CREATE TABLE IF NOT EXISTS cron_runs (
   result_count INT,
   error_message TEXT
 );
-
-COMMENT ON TABLE cron_runs IS 'Log สำหรับ Cron เรียก apply_scheduled_shift_changes_for_date (optional)';
 
 -- Wrapper สำหรับ Cron: รัน apply แล้ว log
 CREATE OR REPLACE FUNCTION run_apply_shift_changes_and_log()

@@ -56,7 +56,4 @@ LEFT JOIN meal_all_today m ON m.user_id = p.id
 WHERE p.active = true
   AND p.role IN ('instructor', 'staff', 'instructor_head');
 
-COMMENT ON VIEW dashboard_today_staff IS
-  'พนักงานวันนี้จากตารางวันหยุด. meal_slots = ทุกช่วงจองพักอาหาร (array). Timezone Asia/Bangkok.';
-
 GRANT SELECT ON dashboard_today_staff TO authenticated;

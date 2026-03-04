@@ -23,6 +23,4 @@ SELECT
   from_shift_id, to_shift_id
 FROM cross_branch_transfers;
 
-COMMENT ON VIEW shift_change_history_view IS 'ประวัติย้ายกะรวม (สลับกะ + ย้ายข้ามแผนก) สำหรับ pagination';
-
 GRANT SELECT ON shift_change_history_view TO authenticated;

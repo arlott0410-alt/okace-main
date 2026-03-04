@@ -6,7 +6,6 @@
 
 -- ========== 001: admin_note ใน cross_branch_transfers ==========
 ALTER TABLE cross_branch_transfers ADD COLUMN IF NOT EXISTS admin_note TEXT;
-COMMENT ON COLUMN cross_branch_transfers.admin_note IS 'หมายเหตุจากผู้ดูแลระบบ (อนุมัติ/ปฏิเสธ)';
 
 -- ========== 002: seed break_rules ==========
 INSERT INTO break_rules (min_staff, max_staff, concurrent_breaks)
@@ -34,7 +33,6 @@ RETURNS TEXT LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
     )
   LIMIT 1;
 $$;
-COMMENT ON FUNCTION public.get_email_for_login(TEXT) IS 'ใช้สำหรับหน้าเข้าสู่ระบบ: แปลงชื่อผู้ใช้/อีเมล เป็น email ใน profiles';
 GRANT EXECUTE ON FUNCTION public.get_email_for_login(TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.get_email_for_login(TEXT) TO authenticated;
 
@@ -63,7 +61,6 @@ CREATE TABLE IF NOT EXISTS websites (
 );
 CREATE INDEX IF NOT EXISTS idx_websites_branch ON websites(branch_id);
 CREATE INDEX IF NOT EXISTS idx_websites_active ON websites(is_active);
-COMMENT ON TABLE websites IS 'เว็บที่ดูแล — ผูกกับแผนก (branch)';
 
 CREATE TABLE IF NOT EXISTS website_assignments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -75,7 +72,6 @@ CREATE TABLE IF NOT EXISTS website_assignments (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_website_assignments_one_primary_per_user ON website_assignments(user_id) WHERE (is_primary = true);
 CREATE INDEX IF NOT EXISTS idx_website_assignments_user ON website_assignments(user_id);
 CREATE INDEX IF NOT EXISTS idx_website_assignments_website ON website_assignments(website_id);
-COMMENT ON TABLE website_assignments IS 'การมอบหมายว่า user ไหนดูแล website ไหน — ต่อ user มีเว็บหลักได้ 1 เว็บ';
 
 ALTER TABLE websites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE website_assignments ENABLE ROW LEVEL SECURITY;
@@ -104,7 +100,6 @@ BEGIN
   UPDATE website_assignments SET is_primary = true WHERE user_id = p_user_id AND website_id = p_website_id;
 END;
 $$;
-COMMENT ON FUNCTION set_primary_website(UUID, UUID) IS 'ตั้งเว็บหลักของ user (เฉพาะ admin เรียกผ่าน service)';
 GRANT EXECUTE ON FUNCTION set_primary_website(UUID, UUID) TO authenticated;
 
 DROP TRIGGER IF EXISTS websites_updated_at ON websites;
@@ -113,7 +108,6 @@ CREATE TRIGGER websites_updated_at BEFORE UPDATE ON websites FOR EACH ROW EXECUT
 -- ========== 007: แผนกประจำ my_branch_id + RLS ==========
 CREATE OR REPLACE FUNCTION my_branch_id()
 RETURNS UUID AS $$ SELECT p.default_branch_id FROM profiles p WHERE p.id = auth.uid() AND p.role IN ('instructor', 'staff') AND p.default_branch_id IS NOT NULL LIMIT 1; $$ LANGUAGE sql SECURITY DEFINER STABLE;
-COMMENT ON FUNCTION my_branch_id() IS 'แผนกประจำของ current user (instructor/staff); admin ได้ null';
 
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_instructor_staff_must_have_branch;
 ALTER TABLE profiles ADD CONSTRAINT profiles_instructor_staff_must_have_branch CHECK (
@@ -178,7 +172,6 @@ CREATE POLICY password_vault_select ON password_vault FOR SELECT TO authenticate
 -- ========== 008: user_group (INSTRUCTOR/STAFF) ==========
 CREATE OR REPLACE FUNCTION my_user_group()
 RETURNS TEXT AS $$ SELECT CASE p.role WHEN 'instructor' THEN 'INSTRUCTOR' WHEN 'staff' THEN 'STAFF' ELSE NULL END FROM profiles p WHERE p.id = auth.uid() LIMIT 1; $$ LANGUAGE sql SECURITY DEFINER STABLE;
-COMMENT ON FUNCTION my_user_group() IS 'กลุ่มผู้ใช้ปัจจุบัน: INSTRUCTOR หรือ STAFF; admin ได้ NULL';
 
 ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS user_group TEXT;
 ALTER TABLE work_logs DROP CONSTRAINT IF EXISTS work_logs_user_group_check;
@@ -315,8 +308,6 @@ CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXEC
 -- ========== 013: group_links website_id + RLS หัวหน้า ==========
 ALTER TABLE group_links ADD COLUMN IF NOT EXISTS website_id UUID REFERENCES websites(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_group_links_website ON group_links(website_id);
-COMMENT ON COLUMN group_links.website_id IS 'เว็บที่กลุ่มงานนี้สังกัด (อยู่ในสาขา branch_id)';
-
 DROP POLICY IF EXISTS group_links_all ON group_links;
 DROP POLICY IF EXISTS group_links_select ON group_links;
 CREATE POLICY group_links_select ON group_links FOR SELECT TO authenticated USING (is_admin() OR (my_branch_id() IS NOT NULL AND (branch_id = my_branch_id() OR branch_id IS NULL)));
@@ -331,7 +322,6 @@ CREATE TABLE IF NOT EXISTS holiday_booking_config (
   created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now(),
   CONSTRAINT holiday_booking_config_dates_check CHECK (open_until >= open_from)
 );
-COMMENT ON TABLE holiday_booking_config IS 'เปิดจองวันหยุดต่อเดือน: target_year_month = yyyy-MM, open_from/open_until = ช่วงที่พนักงานจองได้';
 CREATE INDEX IF NOT EXISTS idx_holiday_booking_config_target ON holiday_booking_config(target_year_month);
 ALTER TABLE holiday_booking_config ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS holiday_booking_config_select ON holiday_booking_config;
@@ -388,8 +378,6 @@ CREATE TABLE IF NOT EXISTS shift_swap_rounds (
 );
 CREATE INDEX IF NOT EXISTS idx_shift_swap_rounds_branch ON shift_swap_rounds(branch_id);
 CREATE INDEX IF NOT EXISTS idx_shift_swap_rounds_dates ON shift_swap_rounds(start_date, end_date);
-COMMENT ON TABLE shift_swap_rounds IS 'รอบสลับกะรายเดือน — หัวหน้า/แอดมินสร้างและเผยแพร่';
-
 CREATE TABLE IF NOT EXISTS shift_swap_assignments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), round_id UUID NOT NULL REFERENCES shift_swap_rounds(id) ON DELETE CASCADE,
   swap_date DATE NOT NULL, user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -400,8 +388,6 @@ CREATE TABLE IF NOT EXISTS shift_swap_assignments (
 CREATE INDEX IF NOT EXISTS idx_shift_swap_assignments_round ON shift_swap_assignments(round_id);
 CREATE INDEX IF NOT EXISTS idx_shift_swap_assignments_user ON shift_swap_assignments(user_id);
 CREATE INDEX IF NOT EXISTS idx_shift_swap_assignments_date ON shift_swap_assignments(swap_date);
-COMMENT ON TABLE shift_swap_assignments IS 'รายการสลับกะต่อคนต่อวัน — สุ่มหรือหัวหน้าแมนนวล';
-
 ALTER TABLE shift_swap_rounds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shift_swap_assignments ENABLE ROW LEVEL SECURITY;
 
@@ -429,8 +415,6 @@ CREATE TRIGGER shift_swap_rounds_updated_at BEFORE UPDATE ON shift_swap_rounds F
 -- ========== 018: shift_swap_rounds website_id ==========
 ALTER TABLE shift_swap_rounds ADD COLUMN IF NOT EXISTS website_id UUID REFERENCES websites(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_shift_swap_rounds_website ON shift_swap_rounds(website_id);
-COMMENT ON COLUMN shift_swap_rounds.website_id IS 'null = ทั้งสาขา; มีค่า = เฉพาะเว็บที่เลือก';
-
 -- ========== 019: file_vault ==========
 CREATE TABLE IF NOT EXISTS file_vault (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
@@ -452,8 +436,6 @@ CREATE POLICY file_vault_update ON file_vault FOR UPDATE TO authenticated USING 
 DROP POLICY IF EXISTS file_vault_delete ON file_vault;
 CREATE POLICY file_vault_delete ON file_vault FOR DELETE TO authenticated USING (is_admin() OR (is_instructor_head() AND branch_id = my_branch_id()));
 CREATE TRIGGER file_vault_updated_at BEFORE UPDATE ON file_vault FOR EACH ROW EXECUTE PROCEDURE set_updated_at();
-COMMENT ON TABLE file_vault IS 'คลังเก็บไฟล์ — metadata ของไฟล์ใน storage bucket vault';
-
 -- ========== 020: เว็บไม่ผูกสาขา + โลโก้ + แก้ recursion RLS ==========
 CREATE OR REPLACE FUNCTION my_assigned_website_ids()
 RETURNS SETOF UUID LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$ SELECT website_id FROM website_assignments WHERE user_id = auth.uid(); $$;
@@ -491,9 +473,6 @@ BEGIN
   UPDATE website_assignments SET is_primary = true WHERE user_id = p_user_id AND website_id = p_website_id;
 END;
 $$;
-COMMENT ON TABLE websites IS 'เว็บที่ดูแล — ผูกกับผู้ใช้ผ่าน website_assignments (ไม่บังคับผูกสาขา)';
-COMMENT ON COLUMN websites.logo_path IS 'โลโก้เว็บ (option) — path ใน storage หรือ URL';
-
 -- ========== 021: file_vault branch_id nullable ==========
 ALTER TABLE file_vault ALTER COLUMN branch_id DROP NOT NULL;
 DROP POLICY IF EXISTS file_vault_select ON file_vault;
@@ -511,9 +490,6 @@ CREATE POLICY file_vault_delete ON file_vault FOR DELETE TO authenticated USING 
 ALTER TABLE schedule_cards ADD COLUMN IF NOT EXISTS visible_roles TEXT[] DEFAULT '{}';
 ALTER TABLE schedule_cards ADD COLUMN IF NOT EXISTS website_id UUID REFERENCES websites(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_schedule_cards_website ON schedule_cards(website_id);
-COMMENT ON COLUMN schedule_cards.visible_roles IS 'roles ที่เห็นการ์ดได้ (staff, instructor, instructor_head, admin); ว่าง = ทุก role ในสาขา';
-COMMENT ON COLUMN schedule_cards.website_id IS 'null = ทุกเว็บ; มีค่า = เฉพาะผู้ที่ถูก assign เว็บนี้';
-
 CREATE OR REPLACE FUNCTION my_role()
 RETURNS TEXT LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$ SELECT role FROM profiles WHERE id = auth.uid() LIMIT 1; $$;
 
@@ -545,7 +521,6 @@ CREATE POLICY "vault_delete_admin_head" ON storage.objects FOR DELETE TO authent
 
 -- ========== 024: file_vault visible_roles ==========
 ALTER TABLE file_vault ADD COLUMN IF NOT EXISTS visible_roles TEXT[] DEFAULT '{}';
-COMMENT ON COLUMN file_vault.visible_roles IS 'roles ที่เห็นไฟล์ได้ (staff, instructor, instructor_head, admin); ว่าง/null = ทุก role';
 DROP POLICY IF EXISTS file_vault_select ON file_vault;
 CREATE POLICY file_vault_select ON file_vault FOR SELECT TO authenticated USING (
   is_admin() OR (
@@ -557,8 +532,6 @@ CREATE POLICY file_vault_select ON file_vault FOR SELECT TO authenticated USING 
 
 -- ========== 025: group_links visible_roles + หลายเว็บ (group_link_websites) ==========
 ALTER TABLE group_links ADD COLUMN IF NOT EXISTS visible_roles TEXT[] DEFAULT '{}';
-COMMENT ON COLUMN group_links.visible_roles IS 'roles ที่เห็นลิงก์ได้ (staff, instructor, instructor_head, admin); ว่าง/null = ทุก role';
-
 CREATE TABLE IF NOT EXISTS group_link_websites (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   group_link_id UUID NOT NULL REFERENCES group_links(id) ON DELETE CASCADE,

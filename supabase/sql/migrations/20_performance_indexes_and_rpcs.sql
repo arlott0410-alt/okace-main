@@ -72,9 +72,6 @@ AS $$
   WHERE NOT EXISTS (SELECT 1 FROM best);
 $$;
 
-COMMENT ON FUNCTION get_effective_branch_shift_for_date(uuid, date, uuid, uuid) IS
-  'Effective branch_id and shift_id for a user on a date from approved shift_swaps/cross_branch_transfers; fallback from profile.';
-
 
 -- ---------- RPC: Manager Dashboard Today — one call returns Name | Shift | Status | Leave type/reason | Meal time (optional scope) ----------
 CREATE OR REPLACE FUNCTION rpc_manager_dashboard_today(
@@ -144,6 +141,3 @@ AS $$
     AND (p_scope_shift_id IS NULL OR b.eff_shift_id = p_scope_shift_id)
   ORDER BY b.status, b.name NULLS LAST;
 $$;
-
-COMMENT ON FUNCTION rpc_manager_dashboard_today(date, uuid, uuid) IS
-  'Today overview for Supervisor/Manager/Admin: Name, Shift, Status (PRESENT/LEAVE), leave type/reason, meal slots. Optional scope by branch and/or shift. Asia/Bangkok.';

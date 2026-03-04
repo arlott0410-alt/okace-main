@@ -25,9 +25,6 @@ CREATE TABLE IF NOT EXISTS third_party_providers (
   updated_at timestamptz DEFAULT now()
 );
 
-COMMENT ON TABLE third_party_providers IS 'บุคคลที่สาม (3rd Party) — Provider credentials และลิงก์';
-COMMENT ON COLUMN third_party_providers.visible_roles IS 'roles ที่เห็นได้ (staff, instructor, instructor_head, manager, admin); null/empty = ทุกตำแหน่ง';
-
 CREATE INDEX IF NOT EXISTS idx_third_party_created ON third_party_providers (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_third_party_sort ON third_party_providers (sort_order);
 CREATE INDEX IF NOT EXISTS idx_third_party_branch ON third_party_providers (branch_id);

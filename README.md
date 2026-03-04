@@ -87,7 +87,8 @@ okace/
 
 ## Migration (รันหลัง schema หลัก)
 
-รันใน Supabase SQL Editor **ตามลำดับ 3 ไฟล์**: **01 → 02 → 03**  
+รันใน Supabase SQL Editor **ตามลำดับ**: **schema.sql** แล้ว **01 → 02 → … → 34**  
+หรือรันไฟล์เดียว **migrations/full_install.sql** (รวม schema + 01 ถึง 34)  
 รายการและคำอธิบาย: **[supabase/sql/migrations/README.md](supabase/sql/migrations/README.md)**  
 (02 ต้องรันแยกเพราะ PostgreSQL ใช้ค่า enum ใหม่ได้หลัง commit)
 

@@ -8,5 +8,3 @@ CREATE POLICY profiles_select ON profiles FOR SELECT TO authenticated USING (
   OR is_instructor_or_admin()
   OR (default_branch_id IS NOT NULL AND default_branch_id IN (SELECT user_branch_ids(auth.uid())))
 );
-
-COMMENT ON POLICY profiles_select ON profiles IS 'admin/instructor/self เหมือนเดิม; พนักงานเห็นโปรไฟล์คนในแผนกเดียวกัน (สำหรับตารางวันหยุด)';

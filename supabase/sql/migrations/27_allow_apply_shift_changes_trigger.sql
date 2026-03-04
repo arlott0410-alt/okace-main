@@ -61,6 +61,3 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-COMMENT ON FUNCTION check_no_scheduled_shift_change_on_profile_update() IS
-  'ห้ามอัปเดต default_shift_id เมื่อ user มีรายการตั้งเวลาย้ายกะ (approved, start_date>=วันนี้) — ยกเว้นเมื่อค่าใหม่ตรงกับ to_shift_id ที่มีผลวันนี้ (ให้ apply_scheduled_shift_changes_for_date อัปเดตได้)';

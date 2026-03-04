@@ -53,9 +53,6 @@ LEFT JOIN meal_today m ON m.user_id = p.id
 WHERE p.active = true
   AND p.role IN ('instructor', 'staff', 'instructor_head');
 
-COMMENT ON VIEW dashboard_today_staff IS
-  'พนักงานวันนี้จากตารางวันหยุด: PRESENT = ไม่มีแถว holidays วันนี้, LEAVE = มีแถว holidays (approved/pending). จองพักอาหารจาก break_logs MEAL. ใช้ในแดชบอร์ด Supervisor/Manager/Admin. Timezone Asia/Bangkok.';
-
 -- RLS: ใช้ policy เดียวกับที่เห็น profiles/branches — ให้ authenticated อ่านได้ตามสิทธิ์ที่มี
 -- (View อ่านจาก profiles, shifts, holidays, break_logs ที่มี RLS อยู่แล้ว ดังนั้นการ SELECT view จะถูกบังคับโดย underlying tables)
 -- ถ้า Supabase ไม่ให้ SELECT view โดยไม่มี policy แยก เราอาจต้อง GRANT SELECT ให้ role ที่ใช้

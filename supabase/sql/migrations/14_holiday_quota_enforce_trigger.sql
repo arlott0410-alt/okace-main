@@ -129,5 +129,3 @@ CREATE TRIGGER holidays_check_quota_trigger
   ON holidays
   FOR EACH ROW
   EXECUTE PROCEDURE holidays_check_quota();
-
-COMMENT ON FUNCTION holidays_check_quota() IS 'บังคับกติกาวันหยุด: นับเฉพาะ leave_type=HOLIDAY (1) สูงสุด X วัน/คน/เดือน (2) โควต้าขั้น combined ต่อวัน — วันลาอื่นๆ ไม่นับโควต้า';

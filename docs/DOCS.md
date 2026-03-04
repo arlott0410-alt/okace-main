@@ -41,7 +41,7 @@ okace/
 ├── supabase/
 │   └── sql/
 │       ├── schema.sql   # ตาราง, RLS, seed หลัก
-│       └── migrations/  # SQL 3 ไฟล์: 01 → 02 → 03 (ดู migrations/README.md)
+│       └── migrations/  # SQL 01 → … → 34 หรือ full_install.sql (ดู migrations/README.md)
 └── docs/
     └── ...
 ```
@@ -97,7 +97,7 @@ okace/
 
 ### Migration (รันหลัง schema หลัก)
 
-รันใน Supabase SQL Editor **ตามลำดับ 3 ไฟล์**: **01 → 02 → 03**  
+รันใน Supabase SQL Editor **ตามลำดับ**: **schema.sql** แล้ว **01 → 02 → … → 34** หรือรันไฟล์เดียว **migrations/full_install.sql**  
 รายการและคำอธิบาย: **[supabase/sql/migrations/README.md](../supabase/sql/migrations/README.md)**
 
 ### ตารางวันหยุด — กติกาโควต้าและสิทธิ์
@@ -137,7 +137,7 @@ okace/
 4. วางใน Editor แล้วกด **Run**
 5. ตรวจสอบว่าไม่มี error (ถ้ามี error เรื่อง Realtime publication ให้ข้ามหรือลบบรรทัด `ALTER PUBLICATION supabase_realtime ADD TABLE ...` ชั่วคราว แล้วไปเปิด Realtime จาก Table Editor ภายหลัง)
 
-5.1 (ตัวเลือก) รัน Migration เพิ่มเติม ใน SQL Editor **ตามลำดับ 01 → 02 → 03** (ดู `supabase/sql/migrations/README.md`)
+5.1 (ตัวเลือก) รัน Migration เพิ่มเติม ใน SQL Editor **ตามลำดับ 01 → 02 → … → 34** หรือรัน **migrations/full_install.sql** ครั้งเดียว (ดู `supabase/sql/migrations/README.md`)
 
 #### 1.3 สร้าง Storage Bucket สำหรับคลังรูป
 
@@ -301,7 +301,7 @@ VALUES (
 
 - [ ] Supabase: สร้าง Project
 - [ ] Supabase: รัน `schema.sql`
-- [ ] Supabase: รัน migrations 01 → 02 → 03 (ดู migrations/README.md)
+- [ ] Supabase: รัน schema.sql แล้ว migrations 01→34 หรือ full_install.sql (ดู migrations/README.md)
 - [ ] Supabase: สร้าง Storage bucket `vault` + Policy
 - [ ] Supabase: เปิด Realtime ตามตารางที่ใช้ (หรือรัน migration 003)
 - [ ] Supabase: ตั้ง Redirect URLs
