@@ -1,0 +1,21 @@
+---
+description: ปุ่มดำเนินการในตาราง/รายการ — ใช้ไอคอนให้เข้ากับธีม
+alwaysApply: true
+---
+
+# ปุ่มแก้ไข / ลบ / ดาวน์โหลด (Action Icons)
+
+- **ปุ่มที่อยู่ในแถวตารางหรือรายการ** (แก้ไข, ลบ, ดาวน์โหลด) ให้ใช้ **ไอคอน** จาก `components/ui/ActionIcons.tsx` เพื่อให้ดูมืออาชีพและเข้ากับธีม premium-gold/dark
+
+- ใช้:
+  - `BtnEdit` — แก้ไข (ไอคอนดินสอ), สี gold
+  - `BtnDelete` — ลบ (ไอคอนถังขยะ), สี red
+  - `BtnDownload` — ดาวน์โหลด (ไอคอนลูกศรลง)
+
+- ทุกปุ่มต้องมี `title` (tooltip) และจะได้ `aria-label` อัตโนมัติ เพื่อ accessibility
+
+- ตัวอย่าง:
+  - `<BtnEdit onClick={() => openEdit(row)} title="แก้ไข" />`
+  - `<BtnDelete onClick={() => handleDelete(id)} title="ลบ" />`
+
+- ปุ่มหลักในโมดัล (บันทึก, ยกเลิก, เพิ่ม) ยังใช้ `<Button variant="gold">` หรือ `<Button variant="ghost">` ตามเดิม ไม่ต้องเปลี่ยนเป็นไอคอนอย่างเดียว

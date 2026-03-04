@@ -1,0 +1,114 @@
+---
+description: กติกาการพัฒนาและ Deploy — GitHub-driven, No local runtime. Mandatory static verification after coding.
+alwaysApply: true
+---
+
+# กติกาการพัฒนาและ Deploy (okace)
+
+ยึดแนวทางนี้เป็นค่าเริ่มต้นเสมอ ห้ามเสนอวิธีอื่นที่ขัดกับข้อกำหนดนี้
+
+## Environment Constraint (NO LOCAL RUNTIME)
+
+This project does **NOT** run locally.
+
+- No Node.js installed (or used for this project)
+- No Wrangler (local)
+- No local dev server
+- No local build commands
+
+Deployment is done via **GitHub → Cloudflare** only.
+
+You **MUST NOT** run:
+- `npm` / `pnpm` / `yarn`
+- `wrangler`
+- Any local dev or build commands
+
+## สภาพแวดล้อมการทำงาน
+
+โปรเจกต์นี้ **ไม่ใช้ Local Runtime**
+
+- ❌ ไม่ใช้ Node.js local
+- ❌ ไม่รัน `npm run dev`
+- ❌ ไม่รัน `npm run build`
+- ❌ ไม่ใช้ Wrangler CLI local (`wrangler dev`, `wrangler publish`)
+
+## วิธี Deploy ที่ถูกต้อง (วิธีเดียวที่ใช้)
+
+- **GitHub** เป็นศูนย์กลาง
+- **Push → Auto Deploy** เท่านั้น
+
+Workflow:
+
+1. แก้โค้ดใน repository
+2. Commit
+3. Push ไปที่ GitHub (branch main)
+
+ระบบ Deploy อัตโนมัติผ่าน:
+
+- **Cloudflare Pages**
+- **Cloudflare Workers** (Git integration)
+- **Supabase** (Dashboard / SQL editor)
+
+ห้ามเสนอขั้นตอน Local Build หรือ Local Run
+
+## Mandatory Static Verification (after coding)
+
+After writing or modifying code, you **MUST** verify correctness using **static analysis only** (no local run).
+
+### 1) Syntax & Import Validation
+- Ensure no syntax errors
+- Ensure all imports exist and paths are correct
+- Ensure no missing components, hooks, or utilities
+
+### 2) Type Safety (if TypeScript)
+- Ensure all types match usage
+- No implicit `any` in critical logic
+- Props, state, and function signatures must be consistent
+
+### 3) Flow Safety (CRITICAL)
+Confirm:
+- Existing API request format is unchanged
+- Existing response handling is unchanged
+- Existing selection state structure is unchanged
+- Existing submit handlers still receive the same data shape
+- No changes to routing, auth, permissions, or business logic (unless explicitly requested)
+
+### 4) UI Logic Validation
+Manually reason and confirm:
+- Search does not clear selected items
+- Filtering does not modify actual selection state
+- Clear buttons only affect selection (not data)
+- Virtual list does not break checkbox behavior (if applicable)
+
+### 5) Edge Case Review
+Check logic for:
+- Empty list
+- Large list
+- Search with no results
+- Selecting → then filtering → then submitting
+
+### 6) Verification Report (required before finishing)
+
+Do **NOT** finish the task without outputting a verification report that includes:
+- Static validation completed
+- No runtime commands executed
+- Existing flow preserved
+- Data structure unchanged
+- No breaking changes expected for Cloudflare deployment
+
+## แนวทางการสร้าง/แก้โค้ด
+
+เมื่อสร้างหรือแก้ระบบ:
+
+- ห้ามเพิ่มหรือแนะนำคำสั่ง: `npm install`, `npm run build`, `npm run dev`, `node index.js`, `wrangler publish`, `wrangler dev`
+- Environment Variables → ตั้งผ่าน **Dashboard** เท่านั้น
+- Database migration → สร้างเป็น **ไฟล์ SQL** สำหรับรันใน **Supabase Dashboard**
+- Worker binding / Pages config → ระบุขั้นตอนตั้งค่าใน **Cloudflare Dashboard**
+
+## สรุป
+
+โปรเจกต์นี้เป็น **GitHub-driven deployment**, **Dashboard configuration**, **No local runtime**
+
+ใช้กฎนี้ทุกครั้งที่: สร้างไฟล์ใหม่, อธิบายวิธีใช้งาน, แก้ไขระบบ, เพิ่มฟีเจอร์, เขียน README
+
+หลังแก้โค้ดทุกครั้ง: ต้องทำ **Static Verification** ตามหัวข้อด้านบน และสรุป **Verification Report** ก่อนจบงาน

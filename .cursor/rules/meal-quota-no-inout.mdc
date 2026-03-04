@@ -1,0 +1,25 @@
+---
+description: โควต้าพักอาหารและข้อเท็จจริงว่าไม่มี IN/OUT — ใช้จำเมื่อแก้ logic พักอาหาร
+alwaysApply: true
+---
+
+# โควต้าพักอาหาร และการลงเวลา IN/OUT
+
+## ข้อเท็จจริงระบบ (ต้องจำ)
+
+- **ระบบเอาการลงเวลา IN/OUT ออกจากระบบแล้ว** — ไม่มีเมนู/ฟีเจอร์ลงเวลาเข้างาน-ออกงาน (work_logs ไม่ใช้สำหรับโควต้าพักอาหาร)
+- **ห้าม** อ้างอิง `work_logs` หรือ logic "ลงเวลาเข้า (IN)" ในการนับโควต้าพักอาหาร
+
+## โควต้าพักอาหาร — กติกาการนับ "คนอยู่ปฏิบัติ"
+
+การนับใช้เฉพาะคนที่อยู่:
+
+1. **กลุ่มเดียวกัน** (user_group: INSTRUCTOR / STAFF / MANAGER ตาม role)
+2. **แผนกเดียวกัน** (default_branch_id)
+3. **กะเดียวกัน** (default_shift_id)
+4. **เว็บเดียวกัน** — ถ้าเปิดตัวเลือก `scope_meal_quota_by_website` (ตั้งค่า → จองพักอาหาร) จึงนับแยกตามเว็บหลัก (website_assignments is_primary); ถ้าปิด = ไม่แยกเว็บ
+
+เงื่อนไขเพิ่ม: บัญชี active (หรือ active IS NULL) และ **ไม่อยู่วันหยุดอนุมัติ** ในวันนั้น (holidays status = 'approved')
+
+- ฟังก์ชันที่ใช้: `get_meal_capacity_break_logs` — คืน on_duty_count, max_concurrent, current_booked (ต่อช่วง slot)
+- current_booked นับ **ต่อช่วงเวลา** (started_at = slot_start_ts) ไม่นับทั้งรอบ

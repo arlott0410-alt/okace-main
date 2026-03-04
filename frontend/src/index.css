@@ -1,0 +1,170 @@
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --premium-dark: #0B0F1A;
+  --premium-gold: #D4AF37;
+  /* ใช้ rem ให้ซูมของเบราว์เซอร์สเกลได้สม่ำเสมอ */
+  font-size: 16px;
+}
+
+body {
+  @apply bg-premium-dark text-gray-100 font-sans antialiased;
+  /* ป้องกัน layout บีบเมื่อซูมออก — เนื้อหาหลักมี min-width แยกใน Layout */
+  min-height: 100vh;
+}
+
+/* Wrapper เนื้อหาหน้า — ความกว้างขั้นต่ำเวลา zoom out ไม่ให้คอลัมน์บีบจนอ่านยาก (เลื่อนแนวนอนได้) */
+.page-content-min {
+  min-width: 64rem;
+  width: 100%;
+}
+
+/* Sticky table headers */
+.sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: #0B0F1A;
+}
+.sticky-col::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 100%;
+  box-shadow: inset 4px 0 6px -2px rgba(0,0,0,0.3);
+  pointer-events: none;
+}
+
+.sticky-head th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #0B0F1A;
+  box-shadow: 0 1px 0 rgba(212, 175, 55, 0.2);
+}
+
+/* Sidebar nav item hover glow */
+.nav-item-glow:hover {
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.2);
+}
+
+/* Sidebar scrollbar — เข้ากับธีมมืด (track มืด, thumb โทนทอง) */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 175, 55, 0.35) rgba(255, 255, 255, 0.06);
+}
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.35);
+  border-radius: 3px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.5);
+}
+
+/* Dark Gold scrollbar — ใช้กับทั้งหน้าและภายใน modal (.okace-scroll) */
+.okace-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 175, 55, 0.35) #1a1f2e;
+}
+.okace-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.okace-scroll::-webkit-scrollbar-track {
+  background: #1a1f2e;
+  border-radius: 4px;
+}
+.okace-scroll::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.35);
+  border-radius: 4px;
+}
+.okace-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.5);
+}
+
+/* Enterprise data grid: compact row 36–40px, 13px font, sticky header, hover */
+.okace-table-wrap {
+  overflow: auto;
+  max-height: min(70vh, 600px);
+}
+.okace-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.okace-table th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--premium-dark, #0B0F1A);
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: rgba(212, 175, 55, 0.95);
+  border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+  white-space: nowrap;
+}
+.okace-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: middle;
+  height: 36px;
+}
+.okace-table tbody tr:hover {
+  background: rgba(255, 215, 0, 0.06);
+}
+.okace-table .okace-table-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.okace-table .okace-table-actions button {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: rgba(212, 175, 55, 0.9);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.okace-table .okace-table-actions button:hover {
+  background: rgba(255, 215, 55, 0.15);
+}
+
+/* Form & filter: input 34–36px, font 13px, labels 12px gray */
+.okace-input {
+  height: 36px;
+  font-size: 13px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  background: rgba(11, 15, 26, 0.8);
+  color: #e5e7eb;
+}
+.okace-input:focus {
+  outline: none;
+  border-color: rgba(212, 175, 55, 0.5);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.15);
+}
+.okace-label {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+  display: block;
+}
