@@ -233,7 +233,10 @@ export default function HolidayGrid() {
     };
   }, [effectiveBranchId, month, monthDate, onlyMyData, user?.id, isGlobalViewer]);
 
-  const effectiveUserGroup = (isAdmin || isManager || isInstructorHead || isInstructor) ? (userGroupFilter || null) : (myUserGroup ?? (profile?.role === 'instructor_head' ? 'INSTRUCTOR' : null));
+  /** พนักงานออนไลน์ (staff) เห็นทุกคนในแผนกเดียวกันเหมือนหัวหน้า (กะเช้า/ดึก/กลาง) เพื่อดูกะทำงานของเพื่อนในแผนก */
+  const effectiveUserGroup = (isAdmin || isManager || isInstructorHead || isInstructor)
+    ? (userGroupFilter || null)
+    : (profile?.role === 'staff' ? null : (myUserGroup ?? (profile?.role === 'instructor_head' ? 'INSTRUCTOR' : null)));
   function getUserGroupFromRole(role: AppRole): UserGroup | null {
     if (role === 'instructor' || role === 'instructor_head') return 'INSTRUCTOR';
     if (role === 'staff') return 'STAFF';
