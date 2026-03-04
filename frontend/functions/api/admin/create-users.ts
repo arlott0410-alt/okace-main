@@ -11,7 +11,40 @@ function usernameToInternalEmail(username: string): string {
   return (safe || 'user') + INTERNAL_EMAIL_SUFFIX;
 }
 
-type Env = { SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string };
+type Env = {
+  SUPABASE_URL?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
+  /** Optional: Durable Object namespace for cross-isolate idempotency. If not set, no idempotency cache. */
+  OKACE_IDEMPOTENCY?: DurableObjectNamespace;
+};
+
+function hashPayload(body: string): string {
+  let h = 0;
+  for (let i = 0; i < body.length; i++) {
+    const c = body.charCodeAt(i);
+    h = ((h << 5) - h) + c | 0;
+  }
+  return String(h >>> 0);
+}
+
+async function ensureIdempotencyStored(
+  env: Env,
+  idempotencyKey: string,
+  usedDo: boolean,
+  status: number,
+  body: string
+): Promise<void> {
+  if (usedDo && env.OKACE_IDEMPOTENCY) {
+    try {
+      const { idempotencyStore } = await import('../../_idempotency');
+      await idempotencyStore(env.OKACE_IDEMPOTENCY, idempotencyKey, status, body);
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+  if (status >= 500) return;
+}
 
 async function getUserIdFromJwt(request: Request, supabaseUrl: string, serviceRoleKey: string): Promise<string | null> {
   const auth = request.headers.get('Authorization');
@@ -140,8 +173,26 @@ function checkEnv(env: Env): { ok: true } | { ok: false; message: string } {
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
+  const { request, env } = context;
+  let idempotencyKey = '';
+  let usedDo = false;
   try {
-    const { request, env } = context;
+    const bodyText = await request.clone().text();
+    idempotencyKey = request.headers.get('X-Idempotency-Key') ?? 'hash-' + hashPayload(bodyText);
+
+    if (env.OKACE_IDEMPOTENCY) {
+      try {
+        const { idempotencyCheckOrReserve } = await import('../../_idempotency');
+        const result = await idempotencyCheckOrReserve(env.OKACE_IDEMPOTENCY, idempotencyKey);
+        if (result.hit === true) {
+          return new Response(result.body, { status: result.status, headers: { 'Content-Type': 'application/json' } });
+        }
+        usedDo = true;
+      } catch {
+        /* no idempotency */
+      }
+    }
+
     const envCheck = checkEnv(env);
     if (!envCheck.ok) {
       return new Response(JSON.stringify({ message: envCheck.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
@@ -150,27 +201,40 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY ?? '';
     const auth = request.headers.get('Authorization');
     if (!auth?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ message: 'ไม่พบโทเค็น กรุณาล็อกอินใหม่' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+      const msg = JSON.stringify({ message: 'ไม่พบโทเค็น กรุณาล็อกอินใหม่' });
+      await ensureIdempotencyStored(env, idempotencyKey, usedDo, 401, msg);
+      return new Response(msg, { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
     const userId = await getUserIdFromJwt(request, supabaseUrl, serviceRoleKey);
     if (!userId) {
-      return new Response(JSON.stringify({ message: 'โทเค็นไม่ถูกต้องหรือหมดอายุ กรุณาออกจากระบบแล้วล็อกอินใหม่' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+      const msg = JSON.stringify({ message: 'โทเค็นไม่ถูกต้องหรือหมดอายุ กรุณาออกจากระบบแล้วล็อกอินใหม่' });
+      await ensureIdempotencyStored(env, idempotencyKey, usedDo, 401, msg);
+      return new Response(msg, { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
     const caller = await getProfileRoleAndBranch(env, userId);
     if (!caller) {
-      return new Response(JSON.stringify({ message: 'ไม่พบข้อมูลผู้ใช้' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+      const msg = JSON.stringify({ message: 'ไม่พบข้อมูลผู้ใช้' });
+      await ensureIdempotencyStored(env, idempotencyKey, usedDo, 403, msg);
+      return new Response(msg, { status: 403, headers: { 'Content-Type': 'application/json' } });
     }
     if (caller.role !== 'admin' && caller.role !== 'manager' && caller.role !== 'instructor_head') {
-      return new Response(JSON.stringify({ message: 'เฉพาะผู้ดูแลระบบ ผู้จัดการ หรือหัวหน้าผู้สอนเท่านั้น' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+      const msg = JSON.stringify({ message: 'เฉพาะผู้ดูแลระบบ ผู้จัดการ หรือหัวหน้าผู้สอนเท่านั้น' });
+      await ensureIdempotencyStored(env, idempotencyKey, usedDo, 403, msg);
+      return new Response(msg, { status: 403, headers: { 'Content-Type': 'application/json' } });
     }
 
-    const body = (await request.json()) as {
+    let body: {
       usernames?: string[];
       password?: string;
       role?: string;
       default_branch_id?: string;
       default_shift_id?: string;
     };
+    try {
+      body = JSON.parse(bodyText) as typeof body;
+    } catch {
+      body = {};
+    }
     const rawNames = Array.isArray(body?.usernames) ? body.usernames : [];
     const usernames = rawNames.map((u) => (typeof u === 'string' ? u.trim() : '')).filter(Boolean);
     const password = typeof body?.password === 'string' ? body.password : '';
@@ -193,19 +257,22 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     if (usernames.length === 0) {
-      return new Response(JSON.stringify({ message: 'กรุณากรอกชื่อผู้ใช้อย่างน้อย 1 รายการ' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      const msg = JSON.stringify({ message: 'กรุณากรอกชื่อผู้ใช้อย่างน้อย 1 รายการ' });
+      await ensureIdempotencyStored(env, idempotencyKey, usedDo, 400, msg);
+      return new Response(msg, { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     if (!password || password.length < 6) {
-      return new Response(JSON.stringify({ message: 'รหัสผ่านต้องไม่ต่ำกว่า 6 ตัว' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      const msg = JSON.stringify({ message: 'รหัสผ่านต้องไม่ต่ำกว่า 6 ตัว' });
+      await ensureIdempotencyStored(env, idempotencyKey, usedDo, 400, msg);
+      return new Response(msg, { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
     const MAX_BULK = 50;
     const toProcess = usernames.slice(0, MAX_BULK);
     if (usernames.length > MAX_BULK) {
-      return new Response(
-        JSON.stringify({ message: `รับได้สูงสุด ${MAX_BULK} คนต่อครั้ง — กรุณาส่ง ${usernames.length - MAX_BULK} คนในรอบถัดไป` }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      const msg = JSON.stringify({ message: `รับได้สูงสุด ${MAX_BULK} คนต่อครั้ง — กรุณาส่ง ${usernames.length - MAX_BULK} คนในรอบถัดไป` });
+      await ensureIdempotencyStored(env, idempotencyKey, usedDo, 400, msg);
+      return new Response(msg, { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
     const internalEmails = toProcess.map((u) => usernameToInternalEmail(u));
@@ -250,9 +317,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       created.push({ id: result.id, username });
     }
 
-    return new Response(JSON.stringify({ created, skipped_duplicates, failed }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const okBody = JSON.stringify({ created, skipped_duplicates, failed });
+    await ensureIdempotencyStored(env, idempotencyKey, usedDo, 200, okBody);
+    return new Response(okBody, { status: 200, headers: { 'Content-Type': 'application/json' } });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'เกิดข้อผิดพลาด';
-    return new Response(JSON.stringify({ message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    const body = JSON.stringify({ message });
+    if (idempotencyKey) {
+      await ensureIdempotencyStored(env, idempotencyKey, usedDo, 500, body);
+    }
+    return new Response(body, { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 };

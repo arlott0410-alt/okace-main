@@ -1,16 +1,55 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, getApiBase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import Button from '../components/ui/Button';
+
+const TURNSTILE_SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+
+function isTurnstileEnabled(): boolean {
+  return import.meta.env.VITE_TURNSTILE_ENABLED === 'true' && !!import.meta.env.VITE_TURNSTILE_SITE_KEY;
+}
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const turnstileContainerRef = useRef<HTMLDivElement>(null);
+  const turnstileWidgetIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const { profile, user } = useAuth();
+  const turnstileEnabled = isTurnstileEnabled();
+
+  useEffect(() => {
+    if (!turnstileEnabled || !turnstileContainerRef.current) return;
+    const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string;
+    const loadScript = (): void => {
+      const g = globalThis as { turnstile?: { render: (el: HTMLElement, opts: { sitekey: string; callback: (token: string) => void }) => string } };
+      if (g.turnstile && turnstileContainerRef.current) {
+        turnstileWidgetIdRef.current = g.turnstile.render(turnstileContainerRef.current, {
+          sitekey: siteKey,
+          callback: (token: string) => setTurnstileToken(token),
+        });
+      }
+    };
+    if ((globalThis as { turnstile?: unknown }).turnstile) {
+      loadScript();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = TURNSTILE_SCRIPT_URL;
+    script.async = true;
+    script.onload = loadScript;
+    document.head.appendChild(script);
+    return () => {
+      const g = globalThis as { turnstile?: { remove: (id: string) => void } };
+      if (g.turnstile && turnstileWidgetIdRef.current) {
+        try { g.turnstile.remove(turnstileWidgetIdRef.current); } catch { /* ignore */ }
+      }
+    };
+  }, [turnstileEnabled]);
 
   if (user && profile) {
     navigate('/dashboard', { replace: true });
@@ -27,7 +66,23 @@ export default function Login() {
         setError('กรุณากรอกชื่อผู้ใช้');
         return;
       }
+      if (turnstileEnabled && !turnstileToken) {
+        setError('กรุณายืนยัน Turnstile');
+        return;
+      }
       const base = getApiBase();
+      if (turnstileEnabled) {
+        const verifyRes = await fetch(`${base}/api/auth/verify-turnstile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: turnstileToken }),
+        });
+        const verifyJson = (await verifyRes.json().catch(() => ({}))) as { ok?: boolean };
+        if (!verifyJson.ok) {
+          setError('กรุณายืนยัน Turnstile');
+          return;
+        }
+      }
       const res = await fetch(`${base}/api/auth/resolve-email?login_name=${encodeURIComponent(loginName)}`);
       const json = (await res.json().catch(() => ({}))) as { email?: string | null; error?: string };
       if (!res.ok || json.error) {
@@ -90,6 +145,7 @@ export default function Login() {
               required
             />
           </div>
+          {turnstileEnabled && <div ref={turnstileContainerRef} className="flex justify-center min-h-[65px]" />}
           {error && <p className="text-red-400 text-sm">{error}</p>}
           <Button type="submit" className="w-full" loading={loading}>เข้าสู่ระบบ</Button>
         </form>

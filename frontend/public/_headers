@@ -1,0 +1,11 @@
+# API must not be cached
+/api/*
+  Cache-Control: no-store
+
+# Cache static assets long-term (Vite hashes filenames)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# HTML app shell: no cache to avoid stale shell
+/*
+  Cache-Control: no-store

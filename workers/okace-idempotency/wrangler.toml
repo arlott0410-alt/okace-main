@@ -1,0 +1,14 @@
+# Worker that only exports the IdempotencyStore Durable Object.
+# Deploy this Worker, then bind the produced namespace to your Pages project as OKACE_IDEMPOTENCY.
+name = "okace-idempotency"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[durable_objects]
+bindings = [
+  { name = "OKACE_IDEMPOTENCY", class_name = "IdempotencyStore" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["IdempotencyStore"]
