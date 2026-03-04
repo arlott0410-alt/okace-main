@@ -327,21 +327,21 @@ CREATE OR REPLACE FUNCTION is_admin()
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
     SELECT 1 FROM profiles
-    WHERE id = auth.uid() AND role = 'admin'
+    WHERE id = auth.uid() AND role = 'admin'::app_role
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 CREATE OR REPLACE FUNCTION is_instructor_or_admin()
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
     SELECT 1 FROM profiles
-    WHERE id = auth.uid() AND role IN ('admin', 'instructor')
+    WHERE id = auth.uid() AND role IN ('admin'::app_role, 'instructor'::app_role)
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 CREATE OR REPLACE FUNCTION user_branch_ids(uid UUID)
 RETURNS SETOF UUID AS $$
   SELECT DISTINCT b.id FROM branches b
   JOIN profiles p ON p.id = uid
-  WHERE p.role = 'admin'
+  WHERE p.role = 'admin'::app_role
   UNION
   SELECT p.default_branch_id FROM profiles p WHERE p.id = uid AND p.default_branch_id IS NOT NULL
   UNION
@@ -553,7 +553,7 @@ BEGIN
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'name', NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
-    'staff'
+    'staff'::app_role
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
@@ -589,7 +589,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_email_for_login(TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.get_email_for_login(TEXT) TO authenticated;
 CREATE OR REPLACE FUNCTION is_staff_or_instructor()
-RETURNS BOOLEAN AS $$ SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('instructor', 'staff')); $$ LANGUAGE sql SECURITY DEFINER STABLE;
+RETURNS BOOLEAN AS $$ SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('instructor'::app_role, 'staff'::app_role)); $$ LANGUAGE sql SECURITY DEFINER STABLE;
 DROP POLICY IF EXISTS work_logs_insert ON work_logs;
 CREATE POLICY work_logs_insert ON work_logs FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid() AND is_staff_or_instructor());
 DROP POLICY IF EXISTS break_logs_insert ON break_logs;
@@ -647,13 +647,13 @@ GRANT EXECUTE ON FUNCTION set_primary_website(UUID, UUID) TO authenticated;
 DROP TRIGGER IF EXISTS websites_updated_at ON websites;
 CREATE TRIGGER websites_updated_at BEFORE UPDATE ON websites FOR EACH ROW EXECUTE PROCEDURE set_updated_at();
 CREATE OR REPLACE FUNCTION my_branch_id()
-RETURNS UUID AS $$ SELECT p.default_branch_id FROM profiles p WHERE p.id = auth.uid() AND p.role IN ('instructor', 'staff') AND p.default_branch_id IS NOT NULL LIMIT 1; $$ LANGUAGE sql SECURITY DEFINER STABLE;
+RETURNS UUID AS $$ SELECT p.default_branch_id FROM profiles p WHERE p.id = auth.uid() AND p.role IN ('instructor'::app_role, 'staff'::app_role) AND p.default_branch_id IS NOT NULL LIMIT 1; $$ LANGUAGE sql SECURITY DEFINER STABLE;
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_instructor_staff_must_have_branch;
 ALTER TABLE profiles ADD CONSTRAINT profiles_instructor_staff_must_have_branch CHECK (
-  (role IN ('instructor', 'staff') AND default_branch_id IS NOT NULL) OR (role NOT IN ('instructor', 'staff'))
+  (role IN ('instructor'::app_role, 'staff'::app_role) AND default_branch_id IS NOT NULL) OR (role NOT IN ('instructor'::app_role, 'staff'::app_role))
 );
 UPDATE profiles SET default_branch_id = (SELECT id FROM branches WHERE active = true ORDER BY name LIMIT 1)
-WHERE role IN ('instructor', 'staff') AND default_branch_id IS NULL AND EXISTS (SELECT 1 FROM branches WHERE active = true LIMIT 1);
+WHERE role IN ('instructor'::app_role, 'staff'::app_role) AND default_branch_id IS NULL AND EXISTS (SELECT 1 FROM branches WHERE active = true LIMIT 1);
 DROP POLICY IF EXISTS monthly_roster_select ON monthly_roster;
 CREATE POLICY monthly_roster_select ON monthly_roster FOR SELECT TO authenticated USING (is_admin() OR (my_branch_id() IS NOT NULL AND branch_id = my_branch_id()));
 DROP POLICY IF EXISTS roster_status_select ON monthly_roster_status;
@@ -699,7 +699,7 @@ CREATE POLICY password_vault_select ON password_vault FOR SELECT TO authenticate
   is_admin() OR branch_scope IS NULL OR branch_scope = 'all' OR (my_branch_id() IS NOT NULL AND branch_scope = my_branch_id()::text)
 );
 CREATE OR REPLACE FUNCTION my_user_group()
-RETURNS TEXT AS $$ SELECT CASE p.role WHEN 'instructor' THEN 'INSTRUCTOR' WHEN 'staff' THEN 'STAFF' ELSE NULL END FROM profiles p WHERE p.id = auth.uid() LIMIT 1; $$ LANGUAGE sql SECURITY DEFINER STABLE;
+RETURNS TEXT AS $$ SELECT CASE p.role WHEN 'instructor'::app_role THEN 'INSTRUCTOR' WHEN 'staff'::app_role THEN 'STAFF' ELSE NULL END FROM profiles p WHERE p.id = auth.uid() LIMIT 1; $$ LANGUAGE sql SECURITY DEFINER STABLE;
 ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS user_group TEXT;
 ALTER TABLE work_logs DROP CONSTRAINT IF EXISTS work_logs_user_group_check;
 ALTER TABLE work_logs ADD CONSTRAINT work_logs_user_group_check CHECK (user_group IS NULL OR user_group IN ('INSTRUCTOR', 'STAFF'));
@@ -715,11 +715,11 @@ ALTER TABLE holiday_quotas ADD CONSTRAINT holiday_quotas_user_group_check CHECK 
 ALTER TABLE break_rules ADD COLUMN IF NOT EXISTS user_group TEXT;
 ALTER TABLE break_rules DROP CONSTRAINT IF EXISTS break_rules_user_group_check;
 ALTER TABLE break_rules ADD CONSTRAINT break_rules_user_group_check CHECK (user_group IS NULL OR user_group IN ('INSTRUCTOR', 'STAFF'));
-UPDATE work_logs w SET user_group = CASE p.role WHEN 'instructor' THEN 'INSTRUCTOR' WHEN 'staff' THEN 'STAFF' ELSE 'STAFF' END FROM profiles p WHERE w.user_id = p.id AND w.user_group IS NULL;
+UPDATE work_logs w SET user_group = CASE p.role WHEN 'instructor'::app_role THEN 'INSTRUCTOR' WHEN 'staff'::app_role THEN 'STAFF' ELSE 'STAFF' END FROM profiles p WHERE w.user_id = p.id AND w.user_group IS NULL;
 UPDATE work_logs SET user_group = 'STAFF' WHERE user_group IS NULL;
-UPDATE break_logs b SET user_group = CASE p.role WHEN 'instructor' THEN 'INSTRUCTOR' WHEN 'staff' THEN 'STAFF' ELSE 'STAFF' END FROM profiles p WHERE b.user_id = p.id AND b.user_group IS NULL;
+UPDATE break_logs b SET user_group = CASE p.role WHEN 'instructor'::app_role THEN 'INSTRUCTOR' WHEN 'staff'::app_role THEN 'STAFF' ELSE 'STAFF' END FROM profiles p WHERE b.user_id = p.id AND b.user_group IS NULL;
 UPDATE break_logs SET user_group = 'STAFF' WHERE user_group IS NULL;
-UPDATE holidays h SET user_group = CASE p.role WHEN 'instructor' THEN 'INSTRUCTOR' WHEN 'staff' THEN 'STAFF' ELSE 'STAFF' END FROM profiles p WHERE h.user_id = p.id AND h.user_group IS NULL;
+UPDATE holidays h SET user_group = CASE p.role WHEN 'instructor'::app_role THEN 'INSTRUCTOR' WHEN 'staff'::app_role THEN 'STAFF' ELSE 'STAFF' END FROM profiles p WHERE h.user_id = p.id AND h.user_group IS NULL;
 UPDATE holidays SET user_group = 'STAFF' WHERE user_group IS NULL;
 UPDATE holiday_quotas SET user_group = 'STAFF' WHERE user_group IS NULL;
 UPDATE break_rules SET user_group = 'STAFF' WHERE user_group IS NULL;
@@ -770,7 +770,7 @@ DECLARE first_branch_id UUID;
 BEGIN
   SELECT id INTO first_branch_id FROM public.branches ORDER BY (active IS NOT TRUE), name LIMIT 1;
   INSERT INTO public.profiles (id, email, display_name, role, default_branch_id)
-  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'name', NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)), 'staff', first_branch_id)
+  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'name', NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)), 'staff'::app_role, first_branch_id)
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
@@ -778,33 +778,33 @@ $$;
 ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'instructor_head';
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_instructor_staff_must_have_branch;
 ALTER TABLE profiles ADD CONSTRAINT profiles_instructor_staff_must_have_branch CHECK (
-  (role IN ('instructor', 'staff', 'instructor_head') AND default_branch_id IS NOT NULL) OR (role NOT IN ('instructor', 'staff', 'instructor_head'))
+  (role IN ('instructor'::app_role, 'staff'::app_role, 'instructor_head'::app_role) AND default_branch_id IS NOT NULL) OR (role NOT IN ('instructor'::app_role, 'staff'::app_role, 'instructor_head'::app_role))
 );
 CREATE OR REPLACE FUNCTION my_branch_id()
-RETURNS UUID AS $$ SELECT p.default_branch_id FROM profiles p WHERE p.id = auth.uid() AND p.role IN ('instructor', 'staff', 'instructor_head') AND p.default_branch_id IS NOT NULL LIMIT 1; $$ LANGUAGE sql SECURITY DEFINER STABLE;
+RETURNS UUID AS $$ SELECT p.default_branch_id FROM profiles p WHERE p.id = auth.uid() AND p.role IN ('instructor'::app_role, 'staff'::app_role, 'instructor_head'::app_role) AND p.default_branch_id IS NOT NULL LIMIT 1; $$ LANGUAGE sql SECURITY DEFINER STABLE;
 CREATE OR REPLACE FUNCTION is_staff_or_instructor()
-RETURNS BOOLEAN AS $$ SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('instructor', 'staff', 'instructor_head')); $$ LANGUAGE sql SECURITY DEFINER STABLE;
+RETURNS BOOLEAN AS $$ SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('instructor'::app_role, 'staff'::app_role, 'instructor_head'::app_role)); $$ LANGUAGE sql SECURITY DEFINER STABLE;
 CREATE OR REPLACE FUNCTION is_instructor_or_admin()
-RETURNS BOOLEAN AS $$ SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'instructor', 'instructor_head')); $$ LANGUAGE sql SECURITY DEFINER STABLE;
+RETURNS BOOLEAN AS $$ SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin'::app_role, 'instructor'::app_role, 'instructor_head'::app_role)); $$ LANGUAGE sql SECURITY DEFINER STABLE;
 CREATE OR REPLACE FUNCTION is_instructor_head()
-RETURNS BOOLEAN AS $$ SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'instructor_head'); $$ LANGUAGE sql SECURITY DEFINER STABLE;
+RETURNS BOOLEAN AS $$ SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'instructor_head'::app_role); $$ LANGUAGE sql SECURITY DEFINER STABLE;
 DROP POLICY IF EXISTS profiles_select ON profiles;
 CREATE POLICY profiles_select ON profiles FOR SELECT TO authenticated USING (
-  is_admin() OR id = auth.uid() OR is_instructor_or_admin() OR (is_instructor_head() AND (id = auth.uid() OR (default_branch_id = my_branch_id() AND role IN ('instructor', 'staff'))))
+  is_admin() OR id = auth.uid() OR is_instructor_or_admin() OR (is_instructor_head() AND (id = auth.uid() OR (default_branch_id = my_branch_id() AND role IN ('instructor'::app_role, 'staff'::app_role))))
 );
 DROP POLICY IF EXISTS profiles_update_self ON profiles;
 CREATE POLICY profiles_update_self ON profiles FOR UPDATE TO authenticated USING (id = auth.uid());
 DROP POLICY IF EXISTS profiles_update_branch_head ON profiles;
-CREATE POLICY profiles_update_branch_head ON profiles FOR UPDATE TO authenticated USING (is_admin() OR (is_instructor_head() AND default_branch_id = my_branch_id() AND role IN ('instructor', 'staff')));
+CREATE POLICY profiles_update_branch_head ON profiles FOR UPDATE TO authenticated USING (is_admin() OR (is_instructor_head() AND default_branch_id = my_branch_id() AND role IN ('instructor'::app_role, 'staff'::app_role)));
 CREATE OR REPLACE FUNCTION my_user_group()
-RETURNS TEXT AS $$ SELECT CASE p.role WHEN 'instructor' THEN 'INSTRUCTOR' WHEN 'instructor_head' THEN 'INSTRUCTOR' WHEN 'staff' THEN 'STAFF' ELSE NULL END FROM profiles p WHERE p.id = auth.uid() LIMIT 1; $$ LANGUAGE sql SECURITY DEFINER STABLE;
+RETURNS TEXT AS $$ SELECT CASE p.role WHEN 'instructor'::app_role THEN 'INSTRUCTOR' WHEN 'instructor_head'::app_role THEN 'INSTRUCTOR' WHEN 'staff'::app_role THEN 'STAFF' ELSE NULL END FROM profiles p WHERE p.id = auth.uid() LIMIT 1; $$ LANGUAGE sql SECURITY DEFINER STABLE;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE first_branch_id UUID;
 BEGIN
   SELECT id INTO first_branch_id FROM public.branches ORDER BY (active IS NOT TRUE), name LIMIT 1;
   INSERT INTO public.profiles (id, email, display_name, role, default_branch_id)
-  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'name', NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)), 'staff', first_branch_id)
+  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'name', NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)), 'staff'::app_role, first_branch_id)
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
@@ -1136,8 +1136,8 @@ CREATE POLICY profiles_select ON profiles FOR SELECT TO authenticated USING (
   is_admin()
   OR id = auth.uid()
   OR is_instructor_or_admin()
-  OR (is_instructor_head() AND (id = auth.uid() OR (default_branch_id = my_branch_id() AND role IN ('instructor', 'staff'))))
-  OR (my_branch_id() IS NOT NULL AND default_branch_id = my_branch_id() AND role IN ('instructor', 'staff', 'instructor_head'))
+  OR (is_instructor_head() AND (id = auth.uid() OR (default_branch_id = my_branch_id() AND role IN ('instructor'::app_role, 'staff'::app_role))))
+  OR (my_branch_id() IS NOT NULL AND default_branch_id = my_branch_id() AND role IN ('instructor'::app_role, 'staff'::app_role, 'instructor_head'::app_role))
 );
 CREATE TABLE IF NOT EXISTS group_link_branches (
   group_link_id UUID NOT NULL REFERENCES group_links(id) ON DELETE CASCADE,
@@ -2228,8 +2228,8 @@ DECLARE
   out_skipped JSONB := '{}'::JSONB;
   out_applied INT := 0;
 BEGIN
-  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager'));
-  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head');
+  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role));
+  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role);
   IF NOT may_run AND NOT is_head THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can run bulk assignment';
   END IF;
@@ -2338,7 +2338,7 @@ DECLARE
   user_role TEXT;
 BEGIN
   SELECT role::TEXT INTO user_role FROM profiles WHERE id = auth.uid() LIMIT 1;
-  IF user_role IN ('instructor', 'staff') THEN
+  IF user_role IN ('instructor'::text, 'staff'::text) THEN
     NEW.leave_type := 'HOLIDAY';
     NEW.is_quota_exempt := FALSE;
   END IF;
@@ -2430,9 +2430,9 @@ BEGIN
       )
       AND (
         v_user_group IS NULL
-        OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-        OR (v_user_group = 'STAFF' AND p.role = 'staff')
-        OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+        OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+        OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+        OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
       )
   ),
   last_log AS (
@@ -2806,11 +2806,11 @@ SET search_path = public
 AS $$
   SELECT
     CASE role
-      WHEN 'admin' THEN 4
-      WHEN 'manager' THEN 3
-      WHEN 'instructor_head' THEN 2
-      WHEN 'instructor' THEN 1
-      WHEN 'staff' THEN 0
+      WHEN 'admin'::app_role THEN 4
+      WHEN 'manager'::app_role THEN 3
+      WHEN 'instructor_head'::app_role THEN 2
+      WHEN 'instructor'::app_role THEN 1
+      WHEN 'staff'::app_role THEN 0
       ELSE 0
     END
   FROM profiles
@@ -2901,9 +2901,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     ),
     last_log AS (
@@ -2939,9 +2939,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     ),
     last_log AS (
@@ -3005,8 +3005,8 @@ DECLARE
   out_skipped JSONB := '{}'::JSONB;
   i INT;
 BEGIN
-  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager'));
-  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head');
+  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role));
+  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role);
   IF NOT may_run AND NOT is_head THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can run paired swap';
   END IF;
@@ -3129,9 +3129,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
@@ -3158,9 +3158,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
@@ -3214,8 +3214,8 @@ DECLARE
   out_skipped JSONB := '{}'::JSONB;
   out_applied INT := 0;
 BEGIN
-  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager'));
-  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head');
+  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role));
+  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role);
   IF NOT may_run AND NOT is_head THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can run bulk assignment';
   END IF;
@@ -3319,8 +3319,8 @@ DECLARE
   out_skipped JSONB := '{}'::JSONB;
   out_applied INT := 0;
 BEGIN
-  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager'));
-  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head');
+  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role));
+  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role);
   IF NOT may_run AND NOT is_head THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can run bulk assignment';
   END IF;
@@ -3413,8 +3413,8 @@ DECLARE
   out_skipped JSONB := '{}'::JSONB;
   i INT;
 BEGIN
-  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager'));
-  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head');
+  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role));
+  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role);
   IF NOT may_run AND NOT is_head THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can run paired swap';
   END IF;
@@ -3496,7 +3496,7 @@ DECLARE
   v_branch_id UUID;
   v_row RECORD;
 BEGIN
-  IF NOT (EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager','instructor_head'))) THEN
+  IF NOT (EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role,'instructor_head'::app_role))) THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can cancel scheduled shift change';
   END IF;
   IF p_type = 'swap' THEN
@@ -3505,7 +3505,7 @@ BEGIN
     IF NOT FOUND THEN
       RETURN jsonb_build_object('ok', false, 'error', 'not_found_or_not_approved');
     END IF;
-    IF EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head') AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager')) THEN
+    IF EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role) AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role)) THEN
       IF v_branch_id IS NULL OR v_branch_id != my_branch_id() THEN
         RAISE EXCEPTION 'Instructor head can only cancel within their branch';
       END IF;
@@ -3519,7 +3519,7 @@ BEGIN
     IF NOT FOUND THEN
       RETURN jsonb_build_object('ok', false, 'error', 'not_found_or_not_approved');
     END IF;
-    IF EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head') AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager')) THEN
+    IF EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role) AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role)) THEN
       IF v_branch_id IS NULL OR v_branch_id != my_branch_id() THEN
         RAISE EXCEPTION 'Instructor head can only cancel within their branch';
       END IF;
@@ -3552,7 +3552,7 @@ DECLARE
   v_to_shift_id UUID;
   v_skip_set DATE[];
 BEGIN
-  IF NOT (EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager','instructor_head'))) THEN
+  IF NOT (EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role,'instructor_head'::app_role))) THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can update scheduled shift change';
   END IF;
   IF p_type = 'swap' THEN
@@ -3562,7 +3562,7 @@ BEGIN
     IF NOT FOUND THEN
       RETURN jsonb_build_object('ok', false, 'error', 'not_found_or_not_approved');
     END IF;
-    IF EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head') AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager')) THEN
+    IF EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role) AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role)) THEN
       IF v_branch_id != my_branch_id() THEN
         RAISE EXCEPTION 'Instructor head can only update within their branch';
       END IF;
@@ -3588,7 +3588,7 @@ BEGIN
     IF NOT FOUND THEN
       RETURN jsonb_build_object('ok', false, 'error', 'not_found_or_not_approved');
     END IF;
-    IF EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head') AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager')) THEN
+    IF EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role) AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role)) THEN
       IF v_branch_id != my_branch_id() THEN
         RAISE EXCEPTION 'Instructor head can only update within their branch';
       END IF;
@@ -3657,8 +3657,8 @@ DECLARE
   out_skipped JSONB := '{}'::JSONB;
   out_applied INT := 0;
 BEGIN
-  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager'));
-  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head');
+  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role));
+  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role);
   IF NOT may_run AND NOT is_head THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can run bulk assignment';
   END IF;
@@ -3753,8 +3753,8 @@ DECLARE
   out_skipped JSONB := '{}'::JSONB;
   i INT;
 BEGIN
-  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager'));
-  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head');
+  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role));
+  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role);
   IF NOT may_run AND NOT is_head THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can run paired swap';
   END IF;
@@ -3876,9 +3876,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     ),
     last_log AS (
@@ -3915,9 +3915,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     ),
     last_log AS (
@@ -3993,9 +3993,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
@@ -4023,9 +4023,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
@@ -4126,9 +4126,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
@@ -4167,9 +4167,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
@@ -4246,9 +4246,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COALESCE(jsonb_agg(id ORDER BY id), '[]'::JSONB) INTO v_result FROM eligible;
@@ -4265,9 +4265,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COALESCE(jsonb_agg(id ORDER BY id), '[]'::JSONB) INTO v_result FROM eligible;
@@ -4419,9 +4419,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
@@ -4460,9 +4460,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
@@ -4544,9 +4544,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
@@ -4585,9 +4585,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
@@ -4686,8 +4686,8 @@ DECLARE
   out_skipped JSONB := '{}'::JSONB;
   i INT;
 BEGIN
-  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = caller_uid AND role IN ('admin','manager'));
-  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = caller_uid AND role = 'instructor_head');
+  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = caller_uid AND role IN ('admin'::app_role,'manager'::app_role));
+  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = caller_uid AND role = 'instructor_head'::app_role);
   IF NOT may_run AND NOT is_head THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can run paired swap';
   END IF;
@@ -4789,8 +4789,8 @@ DECLARE
   out_applied INT := 0;
   has_scheduled BOOLEAN;
 BEGIN
-  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager'));
-  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head');
+  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role));
+  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role);
   IF NOT may_run AND NOT is_head THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can run bulk assignment';
   END IF;
@@ -4897,8 +4897,8 @@ DECLARE
   i INT;
   has_scheduled BOOLEAN;
 BEGIN
-  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = caller_uid AND role IN ('admin','manager'));
-  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = caller_uid AND role = 'instructor_head');
+  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = caller_uid AND role IN ('admin'::app_role,'manager'::app_role));
+  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = caller_uid AND role = 'instructor_head'::app_role);
   IF NOT may_run AND NOT is_head THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can run paired swap';
   END IF;
@@ -5427,9 +5427,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COALESCE(jsonb_agg(id ORDER BY id), '[]'::JSONB) INTO v_result FROM eligible;
@@ -5446,9 +5446,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COALESCE(jsonb_agg(id ORDER BY id), '[]'::JSONB) INTO v_result FROM eligible;
@@ -5500,9 +5500,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
@@ -5541,9 +5541,9 @@ BEGIN
         )
         AND (
           v_user_group IS NULL
-          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-          OR (v_user_group = 'STAFF' AND p.role = 'staff')
-          OR (v_user_group = 'MANAGER' AND p.role = 'manager')
+          OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+          OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role)
+          OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role)
         )
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
@@ -5663,7 +5663,7 @@ BEGIN
       WHERE p.default_branch_id = p_branch_id AND p.default_shift_id = p_shift_id
         AND (p.active IS NULL OR p.active = true)
         AND NOT EXISTS (SELECT 1 FROM holidays h WHERE h.user_id = p.id AND h.holiday_date = v_holiday_date AND h.status IN ('approved', 'pending'))
-        AND (v_user_group IS NULL OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head')) OR (v_user_group = 'STAFF' AND p.role = 'staff') OR (v_user_group = 'MANAGER' AND p.role = 'manager'))
+        AND (v_user_group IS NULL OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role)) OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role) OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role))
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
     SELECT COUNT(*)::INT INTO v_current_booked
@@ -5683,7 +5683,7 @@ BEGIN
       WHERE p.default_branch_id = p_branch_id AND p.default_shift_id = p_shift_id
         AND (p.active IS NULL OR p.active = true)
         AND NOT EXISTS (SELECT 1 FROM holidays h WHERE h.user_id = p.id AND h.holiday_date = v_holiday_date AND h.status IN ('approved', 'pending'))
-        AND (v_user_group IS NULL OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head')) OR (v_user_group = 'STAFF' AND p.role = 'staff') OR (v_user_group = 'MANAGER' AND p.role = 'manager'))
+        AND (v_user_group IS NULL OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role)) OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role) OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role))
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
     SELECT COUNT(*)::INT INTO v_current_booked
@@ -5915,9 +5915,9 @@ BEGIN
     WHERE p.default_branch_id = NEW.branch_id AND p.default_shift_id = NEW.shift_id
       AND (p.active IS NULL OR p.active = true)
       AND (
-        (NEW.user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-        OR (NEW.user_group = 'STAFF' AND p.role = 'staff')
-        OR (NEW.user_group = 'MANAGER' AND p.role = 'manager')
+        (NEW.user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+        OR (NEW.user_group = 'STAFF' AND p.role = 'staff'::app_role)
+        OR (NEW.user_group = 'MANAGER' AND p.role = 'manager'::app_role)
       );
   ELSE
     SELECT COUNT(*)::INT INTO v_total_people
@@ -5925,9 +5925,9 @@ BEGIN
     WHERE p.default_branch_id = NEW.branch_id AND p.default_shift_id = NEW.shift_id
       AND (p.active IS NULL OR p.active = true)
       AND (
-        (NEW.user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-        OR (NEW.user_group = 'STAFF' AND p.role = 'staff')
-        OR (NEW.user_group = 'MANAGER' AND p.role = 'manager')
+        (NEW.user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+        OR (NEW.user_group = 'STAFF' AND p.role = 'staff'::app_role)
+        OR (NEW.user_group = 'MANAGER' AND p.role = 'manager'::app_role)
       );
   END IF;
   SELECT MIN(hqt.max_leave) INTO v_max_leave
@@ -6031,7 +6031,7 @@ BEGIN
       WHERE p.default_branch_id = p_branch_id AND p.default_shift_id = p_shift_id
         AND (p.active IS NULL OR p.active = true)
         AND NOT EXISTS (SELECT 1 FROM holidays h WHERE h.user_id = p.id AND h.holiday_date = v_holiday_date AND h.status IN ('approved', 'pending'))
-        AND (v_user_group IS NULL OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head')) OR (v_user_group = 'STAFF' AND p.role = 'staff') OR (v_user_group = 'MANAGER' AND p.role = 'manager'))
+        AND (v_user_group IS NULL OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role)) OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role) OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role))
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
     SELECT COUNT(*)::INT INTO v_current_booked
@@ -6051,7 +6051,7 @@ BEGIN
       WHERE p.default_branch_id = p_branch_id AND p.default_shift_id = p_shift_id
         AND (p.active IS NULL OR p.active = true)
         AND NOT EXISTS (SELECT 1 FROM holidays h WHERE h.user_id = p.id AND h.holiday_date = v_holiday_date AND h.status IN ('approved', 'pending'))
-        AND (v_user_group IS NULL OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head')) OR (v_user_group = 'STAFF' AND p.role = 'staff') OR (v_user_group = 'MANAGER' AND p.role = 'manager'))
+        AND (v_user_group IS NULL OR (v_user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role)) OR (v_user_group = 'STAFF' AND p.role = 'staff'::app_role) OR (v_user_group = 'MANAGER' AND p.role = 'manager'::app_role))
     )
     SELECT COUNT(*)::INT INTO v_on_duty_count FROM eligible;
     SELECT COUNT(*)::INT INTO v_current_booked
@@ -6213,8 +6213,8 @@ BEGIN
     RAISE EXCEPTION 'START_DATE_MUST_BE_TOMORROW_OR_LATER'
       USING errcode = 'P0001';
   END IF;
-  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager'));
-  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head');
+  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role));
+  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role);
   IF NOT may_run AND NOT is_head THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can run bulk assignment';
   END IF;
@@ -6300,8 +6300,8 @@ BEGIN
     RAISE EXCEPTION 'START_DATE_MUST_BE_TOMORROW_OR_LATER'
       USING errcode = 'P0001';
   END IF;
-  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = caller_uid AND role IN ('admin','manager'));
-  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = caller_uid AND role = 'instructor_head');
+  may_run := EXISTS (SELECT 1 FROM profiles WHERE id = caller_uid AND role IN ('admin'::app_role,'manager'::app_role));
+  is_head := EXISTS (SELECT 1 FROM profiles WHERE id = caller_uid AND role = 'instructor_head'::app_role);
   IF NOT may_run AND NOT is_head THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can run paired swap';
   END IF;
@@ -6386,7 +6386,7 @@ BEGIN
     RAISE EXCEPTION 'START_DATE_MUST_BE_TOMORROW_OR_LATER'
       USING errcode = 'P0001';
   END IF;
-  IF NOT (EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager','instructor_head'))) THEN
+  IF NOT (EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role,'instructor_head'::app_role))) THEN
     RAISE EXCEPTION 'Only admin, manager, or instructor_head can update scheduled shift change';
   END IF;
   IF p_type = 'swap' THEN
@@ -6395,7 +6395,7 @@ BEGIN
     IF NOT FOUND THEN
       RETURN jsonb_build_object('ok', false, 'error', 'not_found_or_not_approved');
     END IF;
-    IF EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head') AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager')) THEN
+    IF EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role) AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role)) THEN
       IF v_branch_id IS NULL OR v_branch_id != my_branch_id() THEN
         RAISE EXCEPTION 'Instructor head can only update within their branch';
       END IF;
@@ -6410,7 +6410,7 @@ BEGIN
     IF NOT FOUND THEN
       RETURN jsonb_build_object('ok', false, 'error', 'not_found_or_not_approved');
     END IF;
-    IF EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head') AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin','manager')) THEN
+    IF EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'instructor_head'::app_role) AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role IN ('admin'::app_role,'manager'::app_role)) THEN
       IF v_branch_id IS NULL OR v_branch_id != my_branch_id() THEN
         RAISE EXCEPTION 'Instructor head can only update within their branch';
       END IF;
@@ -6501,7 +6501,7 @@ LEFT JOIN shifts s ON s.id = p.default_shift_id
 LEFT JOIN holidays_today h ON h.user_id = p.id
 LEFT JOIN meal_today m ON m.user_id = p.id
 WHERE p.active = true
-  AND p.role IN ('instructor', 'staff', 'instructor_head');
+  AND p.role IN ('instructor'::app_role, 'staff'::app_role, 'instructor_head'::app_role);
 GRANT SELECT ON dashboard_today_staff TO authenticated;
 
 DROP VIEW IF EXISTS dashboard_today_staff CASCADE;
@@ -6553,7 +6553,7 @@ LEFT JOIN shifts s ON s.id = p.default_shift_id
 LEFT JOIN holidays_today h ON h.user_id = p.id
 LEFT JOIN meal_all_today m ON m.user_id = p.id
 WHERE p.active = true
-  AND p.role IN ('instructor', 'staff', 'instructor_head');
+  AND p.role IN ('instructor'::app_role, 'staff'::app_role, 'instructor_head'::app_role);
 GRANT SELECT ON dashboard_today_staff TO authenticated;
 
 CREATE INDEX IF NOT EXISTS idx_holidays_holiday_date_user_id ON holidays(holiday_date, user_id);
@@ -6667,7 +6667,7 @@ AS $$
     CROSS JOIN LATERAL get_effective_branch_shift_for_date(p.id, p_today, p.default_branch_id, p.default_shift_id) AS eff(branch_id, shift_id)
     LEFT JOIN shifts s_eff ON s_eff.id = eff.shift_id
     WHERE p.active = true
-      AND p.role IN ('instructor', 'staff', 'instructor_head')
+      AND p.role IN ('instructor'::app_role, 'staff'::app_role, 'instructor_head'::app_role)
   )
   SELECT b.staff_id, b.name, b.staff_code, b.role, b.shift_name, b.status, b.leave_type, b.leave_reason,
          b.meal_slots, b.meal_start_time, b.meal_end_time
@@ -6742,7 +6742,7 @@ BEGIN
     ) AS j
     FROM profiles p
     CROSS JOIN LATERAL get_effective_branch_shift_for_date(p.id, p_date, p.default_branch_id, p.default_shift_id) AS eff(branch_id, shift_id)
-    WHERE p.active = true AND p.role IN ('instructor', 'staff')
+    WHERE p.active = true AND p.role IN ('instructor'::app_role, 'staff'::app_role)
   )
   SELECT
     (SELECT j FROM dr),
@@ -6999,7 +6999,7 @@ DECLARE
   user_role TEXT;
 BEGIN
   SELECT role::TEXT INTO user_role FROM profiles WHERE id = auth.uid() LIMIT 1;
-  IF user_role IN ('instructor', 'staff') THEN
+  IF user_role IN ('instructor'::text, 'staff'::text) THEN
     NEW.leave_type := 'X';
     NEW.is_quota_exempt := FALSE;
   END IF;
@@ -7060,9 +7060,9 @@ BEGIN
     WHERE p.default_branch_id = NEW.branch_id AND p.default_shift_id = NEW.shift_id
       AND (p.active IS NULL OR p.active = true)
       AND (
-        (NEW.user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-        OR (NEW.user_group = 'STAFF' AND p.role = 'staff')
-        OR (NEW.user_group = 'MANAGER' AND p.role = 'manager')
+        (NEW.user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+        OR (NEW.user_group = 'STAFF' AND p.role = 'staff'::app_role)
+        OR (NEW.user_group = 'MANAGER' AND p.role = 'manager'::app_role)
       );
   ELSE
     SELECT COUNT(*)::INT INTO v_total_people
@@ -7070,9 +7070,9 @@ BEGIN
     WHERE p.default_branch_id = NEW.branch_id AND p.default_shift_id = NEW.shift_id
       AND (p.active IS NULL OR p.active = true)
       AND (
-        (NEW.user_group = 'INSTRUCTOR' AND p.role IN ('instructor', 'instructor_head'))
-        OR (NEW.user_group = 'STAFF' AND p.role = 'staff')
-        OR (NEW.user_group = 'MANAGER' AND p.role = 'manager')
+        (NEW.user_group = 'INSTRUCTOR' AND p.role IN ('instructor'::app_role, 'instructor_head'::app_role))
+        OR (NEW.user_group = 'STAFF' AND p.role = 'staff'::app_role)
+        OR (NEW.user_group = 'MANAGER' AND p.role = 'manager'::app_role)
       );
   END IF;
   SELECT MIN(hqt.max_leave) INTO v_max_leave

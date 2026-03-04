@@ -395,7 +395,7 @@ CREATE OR REPLACE FUNCTION is_admin()
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
     SELECT 1 FROM profiles
-    WHERE id = auth.uid() AND role = 'admin'
+    WHERE id = auth.uid() AND role = 'admin'::app_role
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
@@ -404,7 +404,7 @@ CREATE OR REPLACE FUNCTION is_instructor_or_admin()
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
     SELECT 1 FROM profiles
-    WHERE id = auth.uid() AND role IN ('admin', 'instructor')
+    WHERE id = auth.uid() AND role IN ('admin'::app_role, 'instructor'::app_role)
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
@@ -413,7 +413,7 @@ CREATE OR REPLACE FUNCTION user_branch_ids(uid UUID)
 RETURNS SETOF UUID AS $$
   SELECT DISTINCT b.id FROM branches b
   JOIN profiles p ON p.id = uid
-  WHERE p.role = 'admin'
+  WHERE p.role = 'admin'::app_role
   UNION
   SELECT p.default_branch_id FROM profiles p WHERE p.id = uid AND p.default_branch_id IS NOT NULL
   UNION
@@ -425,6 +425,14 @@ RETURNS SETOF UUID AS $$
   WHERE cbt.user_id = uid AND cbt.status = 'approved'
     AND (current_date < cbt.start_date OR current_date > cbt.end_date);
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- Helper: แผนกประจำของ current user (instructor/staff)
+CREATE OR REPLACE FUNCTION my_branch_id()
+RETURNS UUID AS $$ SELECT p.default_branch_id FROM profiles p WHERE p.id = auth.uid() AND p.role IN ('instructor'::app_role, 'staff'::app_role) AND p.default_branch_id IS NOT NULL LIMIT 1; $$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- Helper: ตรวจสอบว่าเป็นหัวหน้าพนักงานประจำ
+CREATE OR REPLACE FUNCTION is_instructor_head()
+RETURNS BOOLEAN AS $$ SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'instructor_head'::app_role); $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- branches: ทุกคนอ่านได้
 DROP POLICY IF EXISTS branches_select ON branches;
@@ -571,7 +579,7 @@ CREATE POLICY schedule_cards_select ON schedule_cards FOR SELECT TO authenticate
   is_admin()
   OR (
     (branch_id IS NULL OR branch_id IN (SELECT user_branch_ids(auth.uid())))
-    AND (visible_roles IS NULL OR array_length(visible_roles, 1) IS NULL OR (SELECT role FROM profiles WHERE id = auth.uid()) = ANY(visible_roles))
+    AND (visible_roles IS NULL OR array_length(visible_roles, 1) IS NULL OR (SELECT role::text FROM profiles WHERE id = auth.uid()) = ANY(visible_roles))
     AND (website_id IS NULL OR website_id IN (SELECT website_id FROM website_assignments WHERE user_id = auth.uid()))
   )
 );
@@ -688,7 +696,7 @@ BEGIN
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'name', NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
-    'staff'
+    'staff'::app_role
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
