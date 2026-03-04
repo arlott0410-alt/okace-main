@@ -175,7 +175,12 @@ export default function Meal() {
     clearMessage();
     const result = await bookMealBreak(data.work_date, roundKey, slot.slot_start_ts, slot.slot_end_ts);
     if (!result.ok) {
-      const msg = result.error === 'slot_outside_shift' ? 'ช่วงเวลานี้นอกเวลากะของคุณ — กรุณาเลือก slot ภายในกะ' : (result.error ?? 'จองไม่สำเร็จ');
+      const msg =
+        result.error === 'slot_outside_shift'
+          ? 'ช่วงเวลานี้นอกเวลากะของคุณ — กรุณาเลือก slot ภายในกะ'
+          : result.error === 'before_shift_start'
+            ? 'จองได้เฉพาะเมื่ออยู่ภายในเวลากะ (ยังไม่เข้ากะหรือกะสิ้นสุดแล้ว)'
+            : (result.error ?? 'จองไม่สำเร็จ');
       setMessage({ type: 'err', text: msg });
       toast.show(msg, 'error');
       return;
