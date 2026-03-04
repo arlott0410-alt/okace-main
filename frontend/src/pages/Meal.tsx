@@ -204,7 +204,6 @@ export default function Meal() {
   const mealCount = data?.meal_count ?? 0;
   const remaining = Math.max(0, maxPerWorkday - mealCount);
   const canBookMore = mealCount < maxPerWorkday;
-  const now = new Date();
   // กะดึก: ถ้า now อยู่ในช่วงกะที่ "จบในวัน workDate" (หลังเที่ยงคืน) ใช้ช่วงนั้นแทน
   const effectiveBounds = getEffectiveShiftBounds(resolved, now);
   const shiftStartTs = effectiveBounds
