@@ -231,13 +231,15 @@ export default function ScheduleCards() {
               {websites.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-gray-400 text-xs mb-0.5">ตำแหน่ง</label>
-            <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }} className="bg-premium-dark border border-premium-gold/30 rounded-lg px-3 py-2 text-white text-sm min-w-[160px]">
-              <option value="">ทั้งหมด</option>
-              {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-            </select>
-          </div>
+          {(isAdmin || isManager || isHead) && (
+            <div>
+              <label className="block text-gray-400 text-xs mb-0.5">ตำแหน่ง</label>
+              <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }} className="bg-premium-dark border border-premium-gold/30 rounded-lg px-3 py-2 text-white text-sm min-w-[160px]">
+                <option value="">ทั้งหมด</option>
+                {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </select>
+            </div>
+          )}
           <span className="text-gray-500 text-sm">{filteredCards.length} รายการ</span>
           {canEdit && (
             <Button variant="gold" className="ml-auto" onClick={() => {
