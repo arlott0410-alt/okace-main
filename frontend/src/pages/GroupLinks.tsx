@@ -6,6 +6,7 @@ import { useBranchesShifts } from '../lib/BranchesShiftsContext';
 import { useToast } from '../lib/ToastContext';
 import type { GroupLinkRow } from '../lib/types';
 import { ROLE_OPTIONS, getRoleLabel, resolveVisibleRoles, toCompactVisibleRoles } from '../lib/roleOptions';
+import { logAudit } from '../lib/audit';
 import Button from '../components/ui/Button';
 import PageModal from '../components/ui/PageModal';
 import MultiSelect from '../components/ui/MultiSelect';
@@ -170,6 +171,9 @@ export default function GroupLinks() {
       fetchLinks();
       if (savedId) {
         setLastSavedId(savedId);
+        const action = modal.link ? 'group_link_update' : 'group_link_create';
+        const summary = modal.link ? `แก้ไขกลุ่มงาน "${form.title}"` : `สร้างกลุ่มงาน "${form.title}"`;
+        await logAudit(action, 'group_links', savedId, { title: form.title, url: form.url || null }, summary);
         toast.show(modal.link ? 'แก้ไขลิงก์แล้ว' : 'เพิ่มลิงก์แล้ว');
       }
     } catch (e: unknown) {
@@ -183,8 +187,10 @@ export default function GroupLinks() {
 
   const deleteLink = async (id: string) => {
     if (!confirm('ลบลิงก์นี้?')) return;
+    const link = links.find((l) => l.id === id);
     await supabase.from('group_links').delete().eq('id', id);
     setLinks((prev) => prev.filter((l) => l.id !== id));
+    if (link) await logAudit('group_link_delete', 'group_links', id, { title: link.title }, `ลบกลุ่มงาน "${link.title || '—'}"`);
     toast.show('ลบลิงก์แล้ว');
   };
 

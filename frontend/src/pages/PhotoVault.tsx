@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth';
 import { useBranchesShifts } from '../lib/BranchesShiftsContext';
 import { useToast } from '../lib/ToastContext';
 import { ROLE_OPTIONS, getRoleLabel, resolveVisibleRoles, toCompactVisibleRoles } from '../lib/roleOptions';
+import { logAudit } from '../lib/audit';
 import Button from '../components/ui/Button';
 import PageModal from '../components/ui/PageModal';
 import MultiSelect from '../components/ui/MultiSelect';
@@ -251,18 +252,24 @@ export default function PhotoVault() {
     setUploading(false);
     setUploadModal(false);
     setUploadForm((f) => ({ ...f, files: null, topic: '' }));
-    if (insertedIds[0]) setLastSavedId(insertedIds[0]);
+    if (insertedIds[0]) {
+      setLastSavedId(insertedIds[0]);
+      const fileNames = Array.from(fileList).map((f) => f.name).join(', ');
+      await logAudit('file_vault_create', 'file_vault', insertedIds[0], { file_count: fileList.length, topic: topic.trim() || null }, `อัปโหลดไฟล์: ${fileNames}`);
+    }
     toast.show('อัปโหลดไฟล์แล้ว');
     setPage(1);
     fetchFiles();
   };
 
   const handleUpdateTopic = async (id: string) => {
+    const row = files.find((f) => f.id === id);
     const { error } = await supabase.from('file_vault').update({ topic: editTopic.trim() || null }).eq('id', id);
     if (!error) {
       setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, topic: editTopic.trim() || null } : f)));
       setEditId(null);
       setEditTopic('');
+      if (row) await logAudit('file_vault_update', 'file_vault', id, { file_name: row.file_name, topic: editTopic.trim() || null }, `แก้ไขหัวข้อไฟล์ "${row.file_name}"`);
       toast.show('บันทึกหัวข้อแล้ว');
     }
   };
@@ -271,6 +278,7 @@ export default function PhotoVault() {
     if (!canEdit || !confirm(`ลบไฟล์ "${row.file_name}"?`)) return;
     await supabase.storage.from(BUCKET).remove([row.file_path]);
     await supabase.from('file_vault').delete().eq('id', row.id);
+    await logAudit('file_vault_delete', 'file_vault', row.id, { file_name: row.file_name }, `ลบไฟล์ "${row.file_name}"`);
     toast.show('ลบไฟล์แล้ว');
     fetchFiles();
   };

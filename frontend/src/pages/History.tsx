@@ -18,6 +18,9 @@ const ENTITY_OPTIONS = [
   { value: 'duty_assignments', label: 'จัดหน้าที่' },
   { value: 'managed_website', label: 'เว็บที่ดูแล' },
   { value: 'profiles', label: 'สมาชิก' },
+  { value: 'schedule_cards', label: 'ตารางงาน' },
+  { value: 'file_vault', label: 'คลังเก็บไฟล์' },
+  { value: 'group_links', label: 'ศูนย์รวมกลุ่มงาน' },
 ];
 
 /** คำอธิบายการกระทำเป็นภาษาไทย — อ่านง่าย ไม่ใช้รหัส */
@@ -46,6 +49,15 @@ const ACTION_LABELS: Record<string, string> = {
   WEBSITE_ASSIGN: 'มอบหมายคนดูแลเว็บ',
   WEBSITE_UNASSIGN: 'ยกเลิกการมอบหมายเว็บ',
   WEBSITE_SET_PRIMARY: 'ตั้งเว็บหลัก',
+  schedule_card_create: 'สร้างการ์ดตารางงาน',
+  schedule_card_update: 'แก้ไขการ์ดตารางงาน',
+  schedule_card_delete: 'ลบการ์ดตารางงาน',
+  file_vault_create: 'อัปโหลดไฟล์',
+  file_vault_update: 'แก้ไขหัวข้อไฟล์',
+  file_vault_delete: 'ลบไฟล์',
+  group_link_create: 'สร้างกลุ่มงาน',
+  group_link_update: 'แก้ไขกลุ่มงาน',
+  group_link_delete: 'ลบกลุ่มงาน',
 };
 
 /** คำอธิบายโมดูลเป็นภาษาไทย */
@@ -64,6 +76,9 @@ const ENTITY_TARGET_FALLBACK: Record<string, string> = {
   break_logs: 'รายการพัก',
   work_logs: 'รายการลงเวลา',
   monthly_roster_status: 'ตารางกะ',
+  schedule_cards: 'ตารางงาน',
+  file_vault: 'คลังเก็บไฟล์',
+  group_links: 'ศูนย์รวมกลุ่มงาน',
 };
 
 function defaultDateRange() {

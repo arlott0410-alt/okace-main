@@ -7,6 +7,7 @@ import { useBranchesShifts } from '../lib/BranchesShiftsContext';
 import { useToast } from '../lib/ToastContext';
 import { ROLE_OPTIONS, resolveVisibleRoles, toCompactVisibleRoles, HEAD_AND_ABOVE, HEAD_AND_ABOVE_ROLES } from '../lib/roleOptions';
 import type { ScheduleCard as ScheduleCardType } from '../lib/types';
+import { logAudit } from '../lib/audit';
 import Button from '../components/ui/Button';
 import PageModal from '../components/ui/PageModal';
 import { BtnEdit, BtnDelete } from '../components/ui/ActionIcons';
@@ -145,16 +146,12 @@ export default function ScheduleCards() {
       setFormError('กรุณากรอก URL (บังคับ)');
       return;
     }
-    if (isHead && !myBranchId) {
-      setFormError('หัวหน้าพนักงานประจำต้องมีแผนกในโปรไฟล์ก่อนเพิ่มการ์ด');
-      return;
-    }
     if ((isAdmin || isManager || isHead) && form.branch_ids.length === 0) {
       setFormError('กรุณาเลือกอย่างน้อย 1 แผนก');
       return;
     }
     setLoading(true);
-    const branchIds = form.branch_ids.length ? form.branch_ids : (isHead && myBranchId ? [myBranchId] : []);
+    const branchIds = form.branch_ids.length ? form.branch_ids : [];
     const firstBranch = branchIds[0] ?? null;
     const firstWebsite = form.website_ids.length ? form.website_ids[0] ?? null : null;
     const basePayload = {
@@ -192,14 +189,19 @@ export default function ScheduleCards() {
     setCards((data || []) as ScheduleCardType[]);
     if (savedId) {
       setLastSavedId(savedId);
+      const action = modal.card ? 'schedule_card_update' : 'schedule_card_create';
+      const summary = modal.card ? `แก้ไขการ์ด "${form.title.trim()}"` : `สร้างการ์ด "${form.title.trim()}"`;
+      await logAudit(action, 'schedule_cards', savedId, { title: form.title.trim(), branch_ids: branchIds }, summary);
       toast.show(modal.card ? 'แก้ไขการ์ดแล้ว' : 'เพิ่มการ์ดแล้ว');
     }
   };
 
   const deleteCard = async (id: string) => {
     if (!confirm('ลบการ์ดนี้?')) return;
+    const card = cards.find((c) => c.id === id);
     await supabase.from('schedule_cards').delete().eq('id', id);
     setCards((prev) => prev.filter((c) => c.id !== id));
+    if (card) await logAudit('schedule_card_delete', 'schedule_cards', id, { title: card.title }, `ลบการ์ด "${card.title}"`);
     toast.show('ลบการ์ดแล้ว');
   };
 
@@ -310,16 +312,16 @@ export default function ScheduleCards() {
                             setFormError('');
                             setModal({ open: true, card });
                           }} title="แก้ไข" />
-                          <BtnDelete onClick={() => {
+                          <BtnDelete onClick={async () => {
                             const groupIds = (card as ScheduleCardType & { groupIds?: string[] }).groupIds;
                             if (groupIds && groupIds.length > 0) {
                               if (!confirm('ลบการ์ดนี้? (รวมทุกแผนกที่ผูกไว้)')) return;
-                              Promise.all(groupIds.map((id) => supabase.from('schedule_cards').delete().eq('id', id))).then(() => {
-                                setCards((prev) => prev.filter((c) => !groupIds.includes(c.id)));
-                                toast.show('ลบการ์ดแล้ว');
-                              });
+                              await Promise.all(groupIds.map((id) => supabase.from('schedule_cards').delete().eq('id', id)));
+                              setCards((prev) => prev.filter((c) => !groupIds.includes(c.id)));
+                              await logAudit('schedule_card_delete', 'schedule_cards', card.id, { title: card.title, group_count: groupIds.length }, `ลบการ์ด "${card.title}" (${groupIds.length} แถว)`);
+                              toast.show('ลบการ์ดแล้ว');
                             } else {
-                              deleteCard(card.id);
+                              await deleteCard(card.id);
                             }
                           }} title="ลบ" />
                         </>
