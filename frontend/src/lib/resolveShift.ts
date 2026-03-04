@@ -47,6 +47,49 @@ export function resolveShift(
 }
 
 /**
+ * กะดึก: workDate อาจเป็น "วันที่กะจบ" (หลังเที่ยงคืน) ได้
+ * คืนช่วงกะที่ครอบคลุม "now" — ถ้า now อยู่ในช่วงกะที่ "จบในวัน workDate" (เริ่มเมื่อวาน 20:00 จบวันนี้ 08:00) จะใช้ช่วงนั้น
+ */
+export function getEffectiveShiftBounds(
+  resolved: ResolvedShift | null,
+  now: Date
+): { shiftStartTs: Date; shiftEndTs: Date } | null {
+  if (!resolved) return null;
+  const shift = resolved.shift;
+  if (!shift?.start_time || !shift?.end_time) {
+    return { shiftStartTs: resolved.shiftStartTs, shiftEndTs: resolved.shiftEndTs };
+  }
+  const [startH, startM] = shift.start_time.trim().slice(0, 5).split(':').map(Number);
+  const [endH, endM] = shift.end_time.trim().slice(0, 5).split(':').map(Number);
+  const startMinutes = startH * 60 + (startM || 0);
+  const endMinutes = endH * 60 + (endM || 0);
+  const isNightShift = endMinutes <= startMinutes;
+  if (!isNightShift) {
+    return { shiftStartTs: resolved.shiftStartTs, shiftEndTs: resolved.shiftEndTs };
+  }
+  const workDate = resolved.workDate;
+  const windowEndOnWorkDate = new Date(workDate + 'T00:00:00');
+  windowEndOnWorkDate.setHours(endH, endM || 0, 0, 0);
+  if (now >= windowEndOnWorkDate) {
+    return { shiftStartTs: resolved.shiftStartTs, shiftEndTs: resolved.shiftEndTs };
+  }
+  const prevDayMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(workDate);
+  const prevDay = prevDayMatch
+    ? (() => {
+        const d2 = new Date(Number(prevDayMatch[1]), Number(prevDayMatch[2]) - 1, Number(prevDayMatch[3]));
+        d2.setDate(d2.getDate() - 1);
+        return d2.getFullYear() + '-' + String(d2.getMonth() + 1).padStart(2, '0') + '-' + String(d2.getDate()).padStart(2, '0');
+      })()
+    : workDate;
+  const windowStartPrev = new Date(prevDay + 'T00:00:00');
+  windowStartPrev.setHours(startH, startM || 0, 0, 0);
+  if (now < windowStartPrev) {
+    return { shiftStartTs: resolved.shiftStartTs, shiftEndTs: resolved.shiftEndTs };
+  }
+  return { shiftStartTs: windowStartPrev, shiftEndTs: windowEndOnWorkDate };
+}
+
+/**
  * คืน work_date ที่เหมาะสมสำหรับจองพักอาหารเมื่อเปิดหน้า
  * กะดึก (ข้ามเที่ยงคืน): ถ้าตอนนี้อยู่หลัง 00:00 แต่ยังอยู่ในกะที่เริ่มเมื่อวาน ให้ใช้เมื่อวานเป็น work_date
  */

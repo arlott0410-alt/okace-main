@@ -12,7 +12,7 @@ import {
   type MealSlot,
   type MealBooking,
 } from '../lib/mealBreak';
-import { resolveShift, getDefaultWorkDateForMeal } from '../lib/resolveShift';
+import { resolveShift, getDefaultWorkDateForMeal, getEffectiveShiftBounds } from '../lib/resolveShift';
 import { supabase } from '../lib/supabase';
 
 type SlotState = 'available' | 'full' | 'booked_by_me' | 'outside_shift' | 'before_shift_start';
@@ -159,7 +159,11 @@ export default function Meal() {
 
   const handleBook = async (roundKey: string, slot: MealSlot) => {
     if (!user?.id || !data?.work_date) return;
-    if (resolved && !isNowWithinShift(resolved.shiftStartTs.toISOString(), resolved.shiftEndTs.toISOString(), new Date())) {
+    const nowClick = new Date();
+    const boundsClick = resolved ? getEffectiveShiftBounds(resolved, nowClick) : null;
+    const startTs = boundsClick ? boundsClick.shiftStartTs.toISOString() : resolved?.shiftStartTs.toISOString();
+    const endTs = boundsClick ? boundsClick.shiftEndTs.toISOString() : resolved?.shiftEndTs.toISOString();
+    if (resolved && startTs && endTs && !isNowWithinShift(startTs, endTs, nowClick)) {
       setMessage({ type: 'err', text: 'จองได้เฉพาะเมื่ออยู่ภายในเวลากะ (ยังไม่เข้ากะหรือกะสิ้นสุดแล้ว)' });
       toast.show('จองได้เฉพาะเมื่ออยู่ภายในเวลากะ', 'error');
       return;
@@ -200,9 +204,19 @@ export default function Meal() {
   const mealCount = data?.meal_count ?? 0;
   const remaining = Math.max(0, maxPerWorkday - mealCount);
   const canBookMore = mealCount < maxPerWorkday;
-  // ใช้เวลากะจาก resolved (local) — กะดึกข้ามเที่ยงคืน: shiftEndTs อยู่วันถัดไป (resolveShift ทำให้แล้ว)
-  const shiftStartTs = resolved ? resolved.shiftStartTs.toISOString() : (data?.shift_start_ts ?? undefined);
-  const shiftEndTs = resolved ? resolved.shiftEndTs.toISOString() : (data?.shift_end_ts ?? undefined);
+  const now = new Date();
+  // กะดึก: ถ้า now อยู่ในช่วงกะที่ "จบในวัน workDate" (หลังเที่ยงคืน) ใช้ช่วงนั้นแทน
+  const effectiveBounds = getEffectiveShiftBounds(resolved, now);
+  const shiftStartTs = effectiveBounds
+    ? effectiveBounds.shiftStartTs.toISOString()
+    : resolved
+      ? resolved.shiftStartTs.toISOString()
+      : (data?.shift_start_ts ?? undefined);
+  const shiftEndTs = effectiveBounds
+    ? effectiveBounds.shiftEndTs.toISOString()
+    : resolved
+      ? resolved.shiftEndTs.toISOString()
+      : (data?.shift_end_ts ?? undefined);
   const isWithinShift = isNowWithinShift(shiftStartTs, shiftEndTs, now);
   const isAfterShiftEnd = !isWithinShift && shiftEndTs ? now >= new Date(shiftEndTs) : false;
 
