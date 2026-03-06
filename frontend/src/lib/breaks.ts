@@ -123,7 +123,7 @@ export async function getBreakHistory(filters: {
   if (filters.dateTo) q = q.lte('break_date', filters.dateTo);
   const { data, error } = await q;
   if (error) return { data: [], hasMore: false };
-  const rows = (data || []) as (BreakLog & { profiles: { display_name: string | null } | null })[];
+  const rows = (data || []) as unknown as (BreakLog & { profiles: { display_name: string | null } | null })[];
   const hasMore = rows.length > pageSize;
   const dataSlice = hasMore ? rows.slice(0, pageSize) : rows;
   return { data: dataSlice, hasMore };

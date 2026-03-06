@@ -57,8 +57,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
     .eq('id', userId)
     .single();
   if (error || !data) return null;
-  const p = data as Profile & { branch?: unknown; shift?: unknown };
-  return p;
+  return data as unknown as Profile & { branch?: unknown; shift?: unknown };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

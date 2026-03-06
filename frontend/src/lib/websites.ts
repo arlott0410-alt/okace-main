@@ -227,7 +227,7 @@ export async function listWebsitesForAdminPaginated(
   const offset = Math.max(0, filters.offset || 0);
   let q = supabase
     .from('websites')
-    .select('id, name, alias, branch_id, active, created_at, updated_at, branch:branches(id, name, code)')
+    .select('id, name, alias, branch_id, url, description, logo_path, is_active, created_at, updated_at, branch:branches(id, name, code)')
     .order('name')
     .range(offset, offset + limit);
   if (filters.search?.trim()) {
@@ -236,7 +236,7 @@ export async function listWebsitesForAdminPaginated(
   }
   const { data, error } = await q;
   if (error) return { data: [], hasMore: false };
-  const list = (data || []) as (Website & { branch?: Branch })[];
+  const list = (data || []) as unknown as (Website & { branch?: Branch })[];
   const hasMore = list.length > limit;
   const dataSlice = hasMore ? list.slice(0, limit) : list;
   return { data: dataSlice, hasMore };
