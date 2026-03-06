@@ -66,20 +66,23 @@ export async function hasActiveScheduledShiftChange(userId: string): Promise<boo
   const today = new Date().toISOString().slice(0, 10);
   const { data: swaps } = await supabase
     .from('shift_swaps')
-    .select('id')
+    .select('from_shift_id, to_shift_id')
     .eq('user_id', userId)
     .eq('status', 'approved')
     .gte('start_date', today)
     .limit(1);
-  if (swaps && swaps.length > 0) return true;
+  if ((swaps || []).some((r: { from_shift_id: string; to_shift_id: string }) => r.from_shift_id !== r.to_shift_id)) return true;
   const { data: transfers } = await supabase
     .from('cross_branch_transfers')
-    .select('id')
+    .select('from_branch_id, to_branch_id, from_shift_id, to_shift_id')
     .eq('user_id', userId)
     .eq('status', 'approved')
     .gte('start_date', today)
     .limit(1);
-  return !!(transfers && transfers.length > 0);
+  return (transfers || []).some(
+    (r: { from_branch_id: string | null; to_branch_id: string | null; from_shift_id: string; to_shift_id: string }) =>
+      r.from_branch_id !== r.to_branch_id || r.from_shift_id !== r.to_shift_id
+  );
 }
 
 /** ค่าต่อวันสำหรับตารางวันหยุด: จากกะ → กะปลายทาง */

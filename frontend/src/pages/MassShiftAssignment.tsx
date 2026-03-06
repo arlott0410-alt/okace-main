@@ -724,6 +724,13 @@ export default function MassShiftAssignment() {
 
   const handleUpdateScheduled = async () => {
     if (!editScheduled) return;
+    if (
+      editScheduled.record.type === 'swap' &&
+      editScheduled.newToShiftId === editScheduled.record.from_shift_id
+    ) {
+      setMessage({ type: 'err', text: 'ไม่สามารถแก้เป็นกะเดิมได้ หากไม่ต้องการย้ายกะแล้วให้ยกเลิกรายการแทน' });
+      return;
+    }
     setMessage(null);
     const res = await updateScheduledShiftChange(
       editScheduled.record.type,
@@ -742,6 +749,9 @@ export default function MassShiftAssignment() {
 
   const getShiftName = (id: string) => shifts.find((s) => s.id === id)?.name ?? id.slice(0, 8);
   const getStaffName = (userId: string) => employees.find((e) => e.id === userId)?.display_name || employees.find((e) => e.id === userId)?.email || userId.slice(0, 8);
+  const editScheduledIsSameShiftSwap = !!editScheduled
+    && editScheduled.record.type === 'swap'
+    && editScheduled.newToShiftId === editScheduled.record.from_shift_id;
 
   const movableCount = conflictSummary ? conflictSummary.totalSelected - conflictSummary.employeesWithConflicts : null;
   const blockedCount = conflictSummary?.employeesWithConflicts ?? null;
@@ -1127,7 +1137,7 @@ export default function MassShiftAssignment() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setEditScheduled(null)}>ปิด</Button>
-            <Button variant="gold" onClick={handleUpdateScheduled} disabled={!editScheduled?.newDate}>บันทึก</Button>
+            <Button variant="gold" onClick={handleUpdateScheduled} disabled={!editScheduled?.newDate || editScheduledIsSameShiftSwap}>บันทึก</Button>
           </>
         }
       >
@@ -1155,6 +1165,11 @@ export default function MassShiftAssignment() {
                 ))}
               </select>
             </div>
+            {editScheduledIsSameShiftSwap && (
+              <p className="text-amber-300 text-sm">
+                กะปลายทางตรงกับกะเดิมของรายการนี้แล้ว หากไม่ต้องการย้ายกะ ให้ยกเลิกรายการแทน
+              </p>
+            )}
           </div>
         )}
       </Modal>

@@ -111,6 +111,10 @@ export default function TransferHistory() {
 
   const handleEditSave = async () => {
     if (!editModal) return;
+    if (editModal.type === 'swap' && editToShiftId === editModal.from_shift_id) {
+      toast.show('ไม่สามารถแก้เป็นกะเดิมได้ หากไม่ต้องการย้ายกะแล้วให้ยกเลิกรายการแทน', 'error');
+      return;
+    }
     setActionLoading(true);
     const { ok, error } = await updateScheduledShiftChange(
       editModal.type,
@@ -236,7 +240,14 @@ export default function TransferHistory() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setEditModal(null)}>ปิด</Button>
-            <Button variant="gold" onClick={handleEditSave} loading={actionLoading}>บันทึก</Button>
+            <Button
+              variant="gold"
+              onClick={handleEditSave}
+              loading={actionLoading}
+              disabled={!!editModal && editModal.type === 'swap' && editToShiftId === editModal.from_shift_id}
+            >
+              บันทึก
+            </Button>
           </>
         }
       >
@@ -264,6 +275,11 @@ export default function TransferHistory() {
                 ))}
               </select>
             </div>
+            {editModal.type === 'swap' && editToShiftId === editModal.from_shift_id && (
+              <p className="text-amber-300 text-sm">
+                กะปลายทางตรงกับกะเดิมของรายการนี้แล้ว หากไม่ต้องการย้ายกะ ให้ยกเลิกรายการแทน
+              </p>
+            )}
           </div>
         )}
       </Modal>
