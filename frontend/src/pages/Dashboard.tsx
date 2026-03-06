@@ -216,17 +216,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="แดชบอร์ด"
-        subtitle={
-          isAdmin
-            ? 'จัดการระบบและอนุมัติรายการเท่านั้น (แอดมินไม่ลงเวลา/พัก)'
-            : isManager
-              ? 'จัดการทุกแผนก และใช้เมนูพนักงานได้'
-              : undefined
-        }
-        actions={<LocalClock />}
-      />
+      <PageHeader title="แดชบอร์ด" actions={<LocalClock />} />
 
       <ProfileBar profile={profile ?? null} />
 
@@ -278,7 +268,6 @@ export default function Dashboard() {
           title="พนักงานวันนี้ (จากตารางวันหยุด)"
           actions={<Link to="/จัดหน้าที่" className="text-[12px] text-premium-gold hover:underline">จัดหน้าที่</Link>}
         >
-          <p className="text-[13px] text-gray-400 mb-3">มาทำงาน = ไม่มีวันหยุด/ลาวันนี้ · ลา = มีรายการวันหยุด (อนุมัติ/รอ) · Timezone Asia/Bangkok</p>
           <div className="flex flex-wrap items-center gap-3 mb-4">
             <label className="text-[12px] text-gray-500">แผนก</label>
             <select

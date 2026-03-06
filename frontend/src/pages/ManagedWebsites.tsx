@@ -377,7 +377,7 @@ export default function ManagedWebsites() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="เว็บที่ดูแล" subtitle="รายการเว็บและจัดการผู้ดูแลเว็บ" sticky />
+      <PageHeader title="เว็บที่ดูแล" sticky />
       <div className="flex flex-wrap gap-2">
         <button
           type="button"

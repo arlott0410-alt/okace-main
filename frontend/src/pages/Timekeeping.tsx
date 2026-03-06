@@ -8,7 +8,6 @@ import {
   setStoredBranchId,
   getStoredShiftId,
   setStoredShiftId,
-  getMyUserGroup,
 } from '../lib/auth';
 import { useBranchesShifts } from '../lib/BranchesShiftsContext';
 import type { WorkLog } from '../lib/types';
@@ -110,16 +109,10 @@ export default function Timekeeping() {
     setLoading(false);
   };
 
-  const myUserGroup = getMyUserGroup(profile);
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <h1 className="text-premium-gold text-xl font-semibold">ลงเวลา</h1>
-        {!isAdmin && myUserGroup && (
-          <span className="text-sm px-2 py-0.5 rounded bg-premium-gold/20 text-premium-gold">
-            {myUserGroup === 'INSTRUCTOR' ? 'โหมดพนักงานประจำ' : 'โหมดพนักงานออนไลน์'}
-          </span>
-        )}
       </div>
 
       <div className="flex flex-wrap gap-4 mb-6">

@@ -852,13 +852,11 @@ export default function HolidayGrid() {
     [user, canManageHolidays, bookingConfig, isBookingOpen]
   );
 
-  const subtitle = !isAdmin && myUserGroup
-    ? (myUserGroup === 'INSTRUCTOR' ? 'โหมดพนักงานประจำ' : myUserGroup === 'MANAGER' ? 'โหมดผู้จัดการ' : 'โหมดพนักงานออนไลน์')
-    : !isBookingOpen && !canManageHolidays && bookingConfig
-      ? `ปิดจองวันหยุดเดือนนี้แล้ว (เปิดจอง ${bookingConfig.open_from} – ${bookingConfig.open_until})`
-      : !isBookingOpen && !canManageHolidays && !bookingConfig
-        ? 'ยังไม่เปิดจองวันหยุดเดือนนี้'
-        : undefined;
+  const subtitle = !isBookingOpen && !canManageHolidays && bookingConfig
+    ? `ปิดจองวันหยุดเดือนนี้แล้ว (เปิดจอง ${bookingConfig.open_from} – ${bookingConfig.open_until})`
+    : !isBookingOpen && !canManageHolidays && !bookingConfig
+      ? 'ยังไม่เปิดจองวันหยุดเดือนนี้'
+      : undefined;
 
   return (
     <div className="space-y-5">

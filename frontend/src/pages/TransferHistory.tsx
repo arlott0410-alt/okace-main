@@ -130,11 +130,7 @@ export default function TransferHistory() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="ประวัติการย้ายกะ"
-        subtitle={canSeeAll ? 'รายการสลับกะในแผนกและย้ายข้ามแผนก' : 'รายการของท่าน'}
-        sticky
-      />
+      <PageHeader title="ประวัติการย้ายกะ" sticky />
 
       <div className="flex flex-wrap items-end gap-4">
         <div>

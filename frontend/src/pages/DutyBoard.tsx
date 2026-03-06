@@ -354,7 +354,7 @@ export default function DutyBoard() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="จัดหน้าที่" subtitle="จัดมอบหมายหน้าที่ตามแผนก/กะ/วันที่" sticky />
+      <PageHeader title="จัดหน้าที่" sticky />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="w-full max-w-xl space-y-4">
