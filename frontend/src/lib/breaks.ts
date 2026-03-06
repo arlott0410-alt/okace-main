@@ -123,7 +123,12 @@ export async function getBreakHistory(filters: {
   if (filters.dateTo) q = q.lte('break_date', filters.dateTo);
   const { data, error } = await q;
   if (error) return { data: [], hasMore: false };
-  const rows = (data || []) as unknown as (BreakLog & { profiles: { display_name: string | null } | null })[];
+  const rawRows = (data || []) as Array<BreakLog & { profiles?: { display_name: string | null } | { display_name: string | null }[] | null }>;
+  const rows: (BreakLog & { profiles: { display_name: string | null } | null })[] = rawRows.map((r) => {
+    const profiles = r.profiles == null ? null : Array.isArray(r.profiles) ? (r.profiles[0] ?? null) : r.profiles;
+    const { profiles: _p, ...rest } = r;
+    return { ...rest, profiles };
+  });
   const hasMore = rows.length > pageSize;
   const dataSlice = hasMore ? rows.slice(0, pageSize) : rows;
   return { data: dataSlice, hasMore };

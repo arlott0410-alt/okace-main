@@ -68,11 +68,13 @@ export default function TransferHistory() {
 
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let mounted = true;
     const onEvent = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
-        loadList().then((withMeta) => setList(withMeta));
+        if (!mounted) return;
+        loadList().then((withMeta) => { if (mounted) setList(withMeta); });
       }, 350);
     };
     const channel = supabase
@@ -81,6 +83,7 @@ export default function TransferHistory() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shift_swaps' }, onEvent)
       .subscribe();
     return () => {
+      mounted = false;
       if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };

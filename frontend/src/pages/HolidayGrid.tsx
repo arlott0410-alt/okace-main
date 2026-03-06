@@ -209,14 +209,16 @@ export default function HolidayGrid() {
     const ids = staffList.map((s) => s.id);
     if (ids.length === 0) return;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let mounted = true;
     const refresh = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
-        getScheduledShiftChangeDatesByUser(ids, start, end).then(setScheduledShiftChangeDatesByUser);
+        if (!mounted) return;
+        getScheduledShiftChangeDatesByUser(ids, start, end).then((v) => { if (mounted) setScheduledShiftChangeDatesByUser(v); });
         const fallbacks = new Map(staffList.map((s) => [s.id, { branch_id: s.default_branch_id ?? null, shift_id: s.default_shift_id ?? null }]));
         const isNight = (shiftId: string) => getShiftKind(shifts.find((s) => s.id === shiftId)) === 'night';
-        getEffectiveForStaffInMonth(ids, start, end, fallbacks, { isNightShiftId: isNight }).then(setEffectiveByUserByDate);
+        getEffectiveForStaffInMonth(ids, start, end, fallbacks, { isNightShiftId: isNight }).then((v) => { if (mounted) setEffectiveByUserByDate(v); });
       }, 400);
     };
     const channel = supabase
@@ -225,6 +227,7 @@ export default function HolidayGrid() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cross_branch_transfers' }, refresh)
       .subscribe();
     return () => {
+      mounted = false;
       if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
@@ -235,20 +238,23 @@ export default function HolidayGrid() {
     const start = format(startOfMonth(monthDate), 'yyyy-MM-dd');
     const end = format(endOfMonth(monthDate), 'yyyy-MM-dd');
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let mounted = true;
     const channel = supabase
       .channel('holidays-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'holidays' }, () => {
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
           debounceTimer = null;
+          if (!mounted) return;
           let q = supabase.from('holidays').select('id, user_id, branch_id, shift_id, holiday_date, status, reason, leave_type, user_group, is_quota_exempt, approved_by, approved_at, reject_reason, created_at, updated_at').gte('holiday_date', start).lte('holiday_date', end);
           if (effectiveBranchId) q = q.eq('branch_id', effectiveBranchId);
           if (onlyMyData && user?.id) q = q.eq('user_id', user.id);
-          q.then(({ data }) => setHolidays(data || []));
+          q.then(({ data }) => { if (mounted) setHolidays(data || []); });
         }, 300);
       })
       .subscribe();
     return () => {
+      mounted = false;
       if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };

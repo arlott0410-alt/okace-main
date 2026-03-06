@@ -50,6 +50,12 @@ export function setStoredShiftId(id: string) {
   localStorage.setItem(STORAGE_SHIFT, id);
 }
 
+/** Normalize relation: PostgREST may return many-to-one as object or array; ใช้ object เดียวให้ UI */
+function normalizeRelation<T>(val: T | T[] | null | undefined): T | null {
+  if (val == null) return null;
+  return Array.isArray(val) ? (val[0] ?? null) : val;
+}
+
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
@@ -57,7 +63,12 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
     .eq('id', userId)
     .single();
   if (error || !data) return null;
-  return data as unknown as Profile & { branch?: unknown; shift?: unknown };
+  const raw = data as Record<string, unknown>;
+  return {
+    ...raw,
+    branch: normalizeRelation(raw.branch),
+    shift: normalizeRelation(raw.shift),
+  } as unknown as Profile & { branch?: unknown; shift?: unknown };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

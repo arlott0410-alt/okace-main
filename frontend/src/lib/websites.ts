@@ -207,7 +207,13 @@ export async function listStaffForAssignmentsPaginated(
   if (filters.role) q = q.eq('role', filters.role);
   const { data, error } = await q;
   if (error) return { data: [], hasMore: false };
-  const list = (data || []) as unknown as Profile[];
+  const rawList = (data || []) as Array<Record<string, unknown>>;
+  const list: Profile[] = rawList.map((r) => {
+    const branch = r.branch == null ? undefined : Array.isArray(r.branch) ? (r.branch[0] ?? undefined) : r.branch;
+    const shift = r.shift == null ? undefined : Array.isArray(r.shift) ? (r.shift[0] ?? undefined) : r.shift;
+    const { branch: _b, shift: _s, ...rest } = r;
+    return { ...rest, branch, shift } as unknown as Profile;
+  });
   const hasMore = list.length > limit;
   const dataSlice = hasMore ? list.slice(0, limit) : list;
   return { data: dataSlice, hasMore };
@@ -236,7 +242,12 @@ export async function listWebsitesForAdminPaginated(
   }
   const { data, error } = await q;
   if (error) return { data: [], hasMore: false };
-  const list = (data || []) as unknown as (Website & { branch?: Branch })[];
+  const rawList = (data || []) as Array<Record<string, unknown>>;
+  const list = rawList.map((r) => {
+    const branch = r.branch == null ? undefined : Array.isArray(r.branch) ? (r.branch[0] ?? undefined) : r.branch;
+    const { branch: _b, ...rest } = r;
+    return { ...rest, branch } as unknown as Website & { branch?: Branch };
+  });
   const hasMore = list.length > limit;
   const dataSlice = hasMore ? list.slice(0, limit) : list;
   return { data: dataSlice, hasMore };

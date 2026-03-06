@@ -166,11 +166,13 @@ export default function Dashboard() {
   useEffect(() => {
     if (!profile?.id || !showScheduledChanges) return;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let mounted = true;
     const refresh = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
-        getMyScheduledShiftChanges(profile!.id).then(setScheduledChanges);
+        if (!mounted) return;
+        getMyScheduledShiftChanges(profile!.id).then((v) => { if (mounted) setScheduledChanges(v); });
       }, 300);
     };
     const channel = supabase
@@ -179,6 +181,7 @@ export default function Dashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cross_branch_transfers' }, refresh)
       .subscribe();
     return () => {
+      mounted = false;
       if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };

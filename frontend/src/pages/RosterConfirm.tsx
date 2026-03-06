@@ -40,17 +40,20 @@ export default function RosterConfirm() {
   useEffect(() => {
     if (!branchId) return;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let mounted = true;
     const channel = supabase
       .channel('roster_status')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'monthly_roster_status' }, () => {
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
           debounceTimer = null;
-          getRosterStatus(branchId, month).then(setStatus);
+          if (!mounted) return;
+          getRosterStatus(branchId, month).then((s) => { if (mounted) setStatus(s); });
         }, 300);
       })
       .subscribe();
     return () => {
+      mounted = false;
       if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };

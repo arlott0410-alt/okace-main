@@ -110,18 +110,21 @@ export default function Breaks() {
     if (!canGlobalViewBreaks) return;
     const ug = historyFilters.userGroup || undefined;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let mounted = true;
     const channel = supabase
       .channel('break_logs_admin')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'break_logs' }, () => {
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
           debounceTimer = null;
-          if (myUserGroup) getActiveBreakCount(branchId, shiftId, breakDate, myUserGroup).then(setCurrentOnBreak);
-          getActiveBreaks(branchId, shiftId, breakDate, ug).then(setActiveBreaksList);
+          if (!mounted) return;
+          if (myUserGroup) getActiveBreakCount(branchId, shiftId, breakDate, myUserGroup).then((n) => { if (mounted) setCurrentOnBreak(n); });
+          getActiveBreaks(branchId, shiftId, breakDate, ug).then((list) => { if (mounted) setActiveBreaksList(list); });
         }, 300);
       })
       .subscribe();
     return () => {
+      mounted = false;
       if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };

@@ -172,23 +172,26 @@ export default function DutyBoard() {
   useEffect(() => {
     if (!branchId || !shiftId || !assignmentDate) return;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let mounted = true;
     const channel = supabase
       .channel('duty_assignments')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'duty_assignments' }, () => {
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
           debounceTimer = null;
+          if (!mounted) return;
           supabase
             .from('duty_assignments')
             .select('id, branch_id, shift_id, duty_role_id, user_id, assignment_date')
             .eq('branch_id', branchId)
             .eq('shift_id', shiftId)
             .eq('assignment_date', assignmentDate)
-            .then(({ data }) => setAssignments(data || []));
+            .then(({ data }) => { if (mounted) setAssignments(data || []); });
         }, 300);
       })
       .subscribe();
     return () => {
+      mounted = false;
       if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
