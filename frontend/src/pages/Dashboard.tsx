@@ -271,29 +271,29 @@ export default function Dashboard() {
         {shortcuts.length === 0 ? (
           <p className="text-[13px] text-gray-400">ยังไม่มีเมนูลัด — {canEditShortcuts ? 'กด "จัดการเมนูลัด" เพื่อเพิ่ม' : 'แอดมิน/ผู้จัดการ/หัวหน้าสามารถเพิ่มได้'}</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 min-w-0">
             {shortcuts.map((s) => {
               const isExternal = s.url.startsWith('http://') || s.url.startsWith('https://');
               return (
                 <div
                   key={s.id}
-                  className="relative flex flex-col rounded-[10px] border border-premium-gold/20 bg-premium-dark/40 hover:border-premium-gold/40 hover:bg-premium-gold/5 transition min-h-[120px]"
+                  className="relative flex flex-col rounded-[10px] border border-premium-gold/20 bg-premium-dark/40 hover:border-premium-gold/40 hover:bg-premium-gold/5 transition min-h-[120px] min-w-0"
                 >
                   <a
                     href={s.url}
                     target={isExternal ? '_blank' : undefined}
                     rel={isExternal ? 'noopener noreferrer' : undefined}
-                    className="flex flex-col items-center justify-center gap-2 p-4 pt-4 pb-10 text-center flex-1"
+                    className="flex flex-col items-center justify-center gap-1.5 p-2 pt-2 pb-8 text-center flex-1 min-w-0"
                   >
                     {s.icon_url ? (
-                      <img src={s.icon_url} alt="" className="w-16 h-16 object-contain rounded" />
+                      <img src={s.icon_url} alt="" className="w-16 h-16 flex-shrink-0 object-contain rounded" />
                     ) : (
-                      <span className="w-16 h-16 flex items-center justify-center rounded bg-premium-gold/15 text-premium-gold text-3xl" aria-hidden>🔗</span>
+                      <span className="w-16 h-16 flex-shrink-0 flex items-center justify-center rounded bg-premium-gold/15 text-premium-gold text-3xl" aria-hidden>🔗</span>
                     )}
-                    <span className="text-[13px] font-medium text-gray-200 truncate w-full">{s.title}</span>
+                    <span className="text-[12px] font-medium text-gray-200 truncate w-full px-0.5">{s.title}</span>
                   </a>
                   {canEditShortcuts && (
-                    <div className="absolute bottom-2 right-2 flex items-center gap-1">
+                    <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5">
                       <BtnEdit title="แก้ไข" onClick={() => openShortcutEdit(s)} />
                       <BtnDelete title="ลบ" onClick={() => deleteShortcut(s.id)} />
                     </div>
@@ -313,30 +313,30 @@ export default function Dashboard() {
         {tools.length === 0 ? (
           <p className="text-[13px] text-gray-400">ยังไม่มีเครื่องมือ — {canEditTools ? 'กด "จัดการเครื่องมือ" เพื่อเพิ่ม' : 'แอดมิน/ผู้จัดการ/หัวหน้าสามารถเพิ่มได้'}</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 min-w-0">
             {tools.map((t) => {
               const isExternal = t.url.startsWith('http://') || t.url.startsWith('https://');
               return (
                 <div
                   key={t.id}
-                  className="relative flex items-center gap-3 rounded-xl border border-premium-gold/20 bg-premium-dark/40 hover:border-premium-gold/35 hover:bg-premium-gold/5 transition p-3 min-h-[56px]"
+                  className="relative flex items-center gap-2 rounded-xl border border-premium-gold/20 bg-premium-dark/40 hover:border-premium-gold/35 hover:bg-premium-gold/5 transition p-2 min-h-[56px] min-w-0"
                 >
                   <a
                     href={t.url}
                     target={isExternal ? '_blank' : undefined}
                     rel={isExternal ? 'noopener noreferrer' : undefined}
-                    className="flex flex-1 items-center gap-3 min-w-0"
+                    className="flex flex-1 items-center gap-2 min-w-0"
                   >
                     {t.icon_url ? (
                       <img src={t.icon_url} alt="" className="w-9 h-9 flex-shrink-0 object-contain rounded" />
                     ) : (
-                      <span className="w-9 h-9 flex items-center justify-center rounded bg-premium-gold/15 text-premium-gold text-lg flex-shrink-0" aria-hidden>🔧</span>
+                      <span className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded bg-premium-gold/15 text-premium-gold text-lg" aria-hidden>🔧</span>
                     )}
-                    <span className="text-[13px] font-medium text-gray-200 truncate flex-1">{t.title}</span>
+                    <span className="text-[12px] font-medium text-gray-200 truncate flex-1 min-w-0">{t.title}</span>
                     <span className="text-premium-gold/70 text-sm flex-shrink-0" aria-hidden>&rarr;</span>
                   </a>
                   {canEditTools && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-0.5 flex-shrink-0">
                       <BtnEdit title="แก้ไข" onClick={() => openToolEdit(t)} />
                       <BtnDelete title="ลบ" onClick={() => deleteTool(t.id)} />
                     </div>
