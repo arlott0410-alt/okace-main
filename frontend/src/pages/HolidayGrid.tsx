@@ -138,9 +138,8 @@ export default function HolidayGrid() {
     const requestId = ++holidayGridRequestIdRef.current;
     const start = format(startOfMonth(monthDate), 'yyyy-MM-dd');
     const end = format(endOfMonth(monthDate), 'yyyy-MM-dd');
-    /** พนักงาน (instructor/staff) ให้โหลดทั้งแผนกเสมอ เพื่อให้เห็นวันที่เปลี่ยนกะของคนอื่น; กรองแสดงเฉพาะแถวตัวเองเมื่อเลือก "เฉพาะของฉัน" */
-    const onlyMyUserId =
-      onlyMyData && user?.id && canManageHolidays ? user.id : null;
+    /** ส่ง p_only_my_user_id เมื่อติ๊ก "เฉพาะของฉัน" → RPC คืนแค่ 1 คน + วันหยุดของคนนั้น = ประหยัดโควต้า; ปล่อย null เมื่อไม่ติ๊ก = โหลดทั้งแผนกเพื่อเห็นเปลี่ยนกะของคนอื่น */
+    const onlyMyUserId = onlyMyData && user?.id ? user.id : null;
     supabase
       .rpc('rpc_holiday_grid', {
         p_month_start: start,
@@ -173,7 +172,7 @@ export default function HolidayGrid() {
         const hol = Array.isArray(row.holidays) ? (row.holidays as Holiday[]) : [];
         setHolidays(hol);
       });
-  }, [effectiveBranchId, month, onlyMyData, user?.id, isGlobalViewer, monthDate, canManageHolidays]);
+  }, [effectiveBranchId, month, onlyMyData, user?.id, isGlobalViewer, monthDate]);
 
   useEffect(() => {
     supabase.from('holiday_booking_config').select('id, target_year_month, open_from, open_until, max_days_per_person').eq('target_year_month', month).maybeSingle().then(({ data }) => setBookingConfig(data as HolidayBookingConfig | null));
@@ -288,7 +287,6 @@ export default function HolidayGrid() {
   const filteredStaff = useMemo(() => {
     let list = staffList;
     if (effectiveUserGroup) list = list.filter((s) => getUserGroupFromRole(s.role) === effectiveUserGroup);
-    if (onlyMyData && user?.id) list = list.filter((s) => s.id === user.id);
     if (searchName.trim()) {
       const q = searchName.trim().toLowerCase();
       list = list.filter((s) => (s.display_name || s.email).toLowerCase().includes(q));
@@ -303,7 +301,7 @@ export default function HolidayGrid() {
       });
     }
     return list;
-  }, [staffList, effectiveUserGroup, shiftId, websiteFilter, searchName, onlyMyData, shiftKindFilter, shifts, user?.id]);
+  }, [staffList, effectiveUserGroup, shiftId, websiteFilter, searchName, onlyMyData, shiftKindFilter, shifts]);
 
   /** ชื่อแสดงรูปแบบ แผนก-ชื่อที่แสดง (เช่น AM-AA) — หัวหน้าต่อท้าย -TT (เช่น FT-JUKI-TT) */
   const getDisplayLabel = (s: { default_branch_id: string | null; display_name: string; email: string; role?: string }) => {
