@@ -1,7 +1,8 @@
--- 37: ให้ตารางวันหยุดเห็นแบบเดียวกันทุกคนในแผนก + เห็นวันเปลี่ยนกะของคนอื่น
--- สาเหตุ: rpc_holiday_grid ใช้ SECURITY INVOKER → แต่ละคนได้ผลจาก RLS ไม่เท่ากัน → เห็นคนละแบบ
--- แก้: ใช้ SECURITY DEFINER + ตรวจสิทธิ์ branch ก่อนคืนข้อมูล (ไม่เปิดข้อมูลข้ามแผนก)
--- ผล: ทุกคนในแผนกเดียวกันได้ staff + holidays ชุดเดียวกันเมื่อไม่ติ๊ก "เฉพาะของฉัน"; สิทธิ์แก้ไขไม่เปลี่ยน (ฝั่ง UI/RLS ตาราง holidays ยังเหมือนเดิม)
+-- 37: พนักงานทุกคนเห็นตารางวันหยุดเหมือนแอดมิน (รายชื่อทุกคน + วันลา + วันเปลี่ยนกะ) แต่แก้ไขไม่ได้
+-- เป้าหมาย: ไม่ได้ลดสิ่งที่พนักงานเห็น — เพิ่มแค่ให้เห็นวันเปลี่ยนกะของคนอื่นได้ และให้เห็นชุดข้อมูลเดียวกันทุกคน
+-- สาเหตุ: เดิม RPC ใช้ SECURITY INVOKER → แต่ละคนได้ผลจาก RLS ไม่เท่ากัน → เห็นคนละแบบ
+-- แก้: ใช้ SECURITY DEFINER → คืนข้อมูลชุดเดียวกันตาม branch ที่ขอ; ตรวจสิทธิ์ branch ก่อนคืน (ไม่เปิดข้ามแผนก)
+-- สิทธิ์แก้ไข: ไม่เปลี่ยน — ยังใช้ RLS/UI เดิม (แอดมิน/หัวหน้าแก้คนอื่นได้, พนักงานแก้ได้เฉพาะของตัวเอง)
 
 CREATE OR REPLACE FUNCTION rpc_holiday_grid(
   p_month_start date,
@@ -26,11 +27,11 @@ BEGIN
   SELECT p.role, p.default_branch_id INTO v_caller_role, v_caller_branch_id
   FROM profiles p WHERE p.id = auth.uid() LIMIT 1;
 
-  -- อนุญาตเฉพาะเมื่อ: เรียกดูได้เฉพาะแผนกที่ตัวเองมีสิทธิ์ (หรือแอดมิน/ผู้จัดการ/หัวหน้าเห็นได้ทุกแผนก)
-  IF v_caller_role IN ('admin', 'manager', 'instructor_head') THEN
-    v_allowed := true;
+  -- พนักงานทุกคนเห็นเหมือนแอดมิน (ดูได้): แอดมิน/ผู้จัดการ/หัวหน้า/พนักงานประจำ เลือกแผนกหรือทุกแผนกได้; พนักงานออนไลน์ดูได้เฉพาะแผนกตัวเอง
+  IF v_caller_role IN ('admin', 'manager', 'instructor_head', 'instructor') THEN
+    v_allowed := true;  /* เห็นได้ทุกแผนกหรือแผนกที่เลือก */
   ELSIF p_branch_id IS NOT NULL AND (p_branch_id = v_caller_branch_id OR p_branch_id IN (SELECT user_branch_ids(auth.uid()))) THEN
-    v_allowed := true;
+    v_allowed := true;  /* พนักงานออนไลน์เห็นได้เฉพาะแผนกที่ตัวเองอยู่ */
   END IF;
 
   IF NOT v_allowed THEN
@@ -89,4 +90,4 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION rpc_holiday_grid(date, date, uuid, uuid) IS 'ตารางวันหยุด: SECURITY DEFINER เพื่อให้ทุกคนในแผนกเห็น staff/holidays ชุดเดียวกัน; ตรวจสิทธิ์ branch ก่อนคืนข้อมูล';
+COMMENT ON FUNCTION rpc_holiday_grid(date, date, uuid, uuid) IS 'ตารางวันหยุด: พนักงานเห็นเหมือนแอดมิน (รายชื่อ+วันลา+วันเปลี่ยนกะ) แต่สิทธิ์แก้ไขยังตาม role; SECURITY DEFINER ให้ข้อมูลชุดเดียวกัน';
