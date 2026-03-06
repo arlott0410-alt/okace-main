@@ -21,7 +21,6 @@ import { getShiftKind, getShiftIcon, getShiftLabel } from '../lib/shiftIcons';
 export default function Breaks() {
   const { user, profile } = useAuth();
   const { branches, shifts } = useBranchesShifts();
-  const isAdmin = profile?.role === 'admin';
   const canGlobalViewBreaks = ['admin', 'manager', 'instructor_head', 'instructor'].includes(profile?.role ?? '');
   const [branchId, setBranchId] = useState(getStoredBranchId() || profile?.default_branch_id || '');
   const [shiftId, setShiftId] = useState(getStoredShiftId() || profile?.default_shift_id || '');

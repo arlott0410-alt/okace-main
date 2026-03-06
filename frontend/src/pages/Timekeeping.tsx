@@ -8,6 +8,7 @@ import {
   setStoredBranchId,
   getStoredShiftId,
   setStoredShiftId,
+  getMyUserGroup,
 } from '../lib/auth';
 import { useBranchesShifts } from '../lib/BranchesShiftsContext';
 import type { WorkLog } from '../lib/types';
