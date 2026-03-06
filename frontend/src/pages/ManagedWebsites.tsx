@@ -514,8 +514,15 @@ export default function ManagedWebsites() {
                   </thead>
                   <tbody>
                     {staffPage.map((p) => (
-                      <tr key={p.id} className="border-b border-premium-gold/10 hover:bg-premium-gold/5">
-                        <td className="p-2">
+                      <tr
+                        key={p.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => toggleUserSelection(p.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleUserSelection(p.id); } }}
+                        className="border-b border-premium-gold/10 hover:bg-premium-gold/5 cursor-pointer"
+                      >
+                        <td className="p-2" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" checked={selectedUserIds.includes(p.id)} onChange={() => toggleUserSelection(p.id)} className="rounded border-premium-gold/50 text-premium-gold" />
                         </td>
                         <td className="p-2 text-gray-200">{p.display_name || p.email || p.id}</td>
@@ -582,8 +589,15 @@ export default function ManagedWebsites() {
                   </thead>
                   <tbody>
                     {websitesPage.map((w) => (
-                      <tr key={w.id} className="border-b border-premium-gold/10 hover:bg-premium-gold/5">
-                        <td className="p-2">
+                      <tr
+                        key={w.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => toggleWebsiteSelection(w.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleWebsiteSelection(w.id); } }}
+                        className="border-b border-premium-gold/10 hover:bg-premium-gold/5 cursor-pointer"
+                      >
+                        <td className="p-2" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" checked={selectedWebsiteIds.includes(w.id)} onChange={() => toggleWebsiteSelection(w.id)} className="rounded border-premium-gold/50 text-premium-gold" />
                         </td>
                         <td className="p-2 text-gray-200">{w.name} <span className="font-mono text-premium-gold/80 text-xs">({w.alias})</span></td>
