@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { withCache, invalidate } from '../lib/queryCache';
 import { useAuth } from '../lib/auth';
 import { useBranchesShifts } from '../lib/BranchesShiftsContext';
+import { logAudit } from '../lib/audit';
 import type { Branch, HolidayBookingConfig, HolidayQuotaTier, Shift, MealSettings, MealQuotaRule, LeaveType } from '../lib/types';
 import type { UserGroup } from '../lib/types';
 import Button from '../components/ui/Button';
@@ -105,10 +106,17 @@ export default function Settings() {
 
   const saveBranch = async () => {
     if (!branchForm.name.trim()) return;
-    if (modalBranch.branch?.id) {
-      await supabase.from('branches').update({ name: branchForm.name.trim(), code: branchForm.code.trim() || null, active: branchForm.active }).eq('id', modalBranch.branch.id);
+    const isUpdate = !!modalBranch.branch?.id;
+    if (isUpdate) {
+      const { error } = await supabase.from('branches').update({ name: branchForm.name.trim(), code: branchForm.code.trim() || null, active: branchForm.active }).eq('id', modalBranch.branch!.id);
+      if (!error) {
+        await logAudit('update', 'branch', modalBranch.branch!.id, { name: branchForm.name.trim(), code: branchForm.code.trim() || null, active: branchForm.active }, `แก้ไขสาขา ${branchForm.name.trim()}`);
+      }
     } else {
-      await supabase.from('branches').insert({ name: branchForm.name.trim(), code: branchForm.code.trim() || null, active: true });
+      const { data, error } = await supabase.from('branches').insert({ name: branchForm.name.trim(), code: branchForm.code.trim() || null, active: true }).select('id').single();
+      if (!error && data?.id) {
+        await logAudit('create', 'branch', data.id, { name: branchForm.name.trim(), code: branchForm.code.trim() || null }, `เพิ่มสาขา ${branchForm.name.trim()}`);
+      }
     }
     setModalBranch({ open: false, branch: null });
     loadBranches();
@@ -194,7 +202,10 @@ export default function Settings() {
       alert('กรุณาระบุเวลาเริ่มงานและเวลาเลิกงาน');
       return;
     }
-    await supabase.from('shifts').update({ start_time: start, end_time: end }).eq('id', modalShift.shift.id);
+    const { error } = await supabase.from('shifts').update({ start_time: start, end_time: end }).eq('id', modalShift.shift.id);
+    if (!error) {
+      await logAudit('update', 'shift', modalShift.shift.id, { start_time: start, end_time: end }, `แก้เวลากะ ${modalShift.shift.name ?? modalShift.shift.id}`);
+    }
     setModalShift({ open: false, shift: null });
     refetchBranchesShifts();
   };

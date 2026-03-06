@@ -72,6 +72,27 @@ KV ใช้สำหรับ:
 
 ---
 
+## E) Rate limiting (แนะนำสำหรับ production)
+
+เพื่อลดความเสี่ยง brute-force / abuse ควรเปิด **Rate limiting** ที่ Cloudflare:
+
+1. ไปที่ **Security** → **WAF** → **Custom rules** (หรือ **Rate limiting rules**)
+2. สร้าง rule จำกัดจำนวน request ต่อ IP ต่อช่วงเวลา สำหรับ path ที่เสี่ยง เช่น:
+   - `/login` หรือ path หน้า login ของแอป
+   - `/api/auth/*` (resolve-email, verify-turnstile)
+   - `/api/admin/*` (create-user, create-users, reset-password)
+3. ตั้งขีดจำกัดที่สมเหตุสมผล (เช่น 100 requests / นาที ต่อ IP) แล้วเลือก action **Block** หรือ **Challenge**
+
+ถ้าไม่ตั้ง ระบบทำงานเหมือนเดิม; การเปิด rate limit **ไม่กระทบ flow ปกติ** ของผู้ใช้ทั่วไป
+
+---
+
+## F) Health check
+
+**GET /api/health** — คืน `200` และ `{ "ok": true, "ts": "..." }` ไม่ยิง DB ใช้สำหรับ monitoring / uptime check ได้
+
+---
+
 ## สรุป Fallback
 
 | ฟีเจอร์ | ถ้าไม่ตั้งค่า |

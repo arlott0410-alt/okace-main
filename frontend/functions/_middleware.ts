@@ -87,6 +87,15 @@ async function getAllowMobile(env: Env): Promise<boolean> {
   return v;
 }
 
+/** Security headers สำหรับทุก response — ไม่กระทบ flow */
+function withSecurityHeaders(res: Response): Response {
+  const h = new Headers(res.headers);
+  h.set('X-Frame-Options', 'DENY');
+  h.set('X-Content-Type-Options', 'nosniff');
+  h.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+}
+
 const MOBILE_BLOCK_HTML = `<!DOCTYPE html>
 <html lang="th">
 <head>
@@ -132,7 +141,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   if (new URL(request.url).pathname.startsWith('/api/')) {
     const h = new Headers(res.headers);
     h.set('Cache-Control', 'no-store');
-    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+    res = new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
   }
-  return res;
+  return withSecurityHeaders(res);
 };

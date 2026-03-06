@@ -2,6 +2,7 @@ import { lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './lib/auth';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 
@@ -40,16 +41,17 @@ function ProtectedRoute({ children, allowedRoles, staffOnly }: { children: React
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }
-      >
+    <ErrorBoundary>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         {/* ลงเวลา menu removed; Timekeeping page and work_logs table retained for other features */}
@@ -69,8 +71,9 @@ export default function App() {
         <Route path="จัดการสมาชิก" element={<ProtectedRoute allowedRoles={['admin', 'manager', 'instructor_head']}><MemberManagement /></ProtectedRoute>} />
         <Route path="บัญชีของฉัน" element={<Account />} />
         <Route path="ตั้งค่า" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Settings /></ProtectedRoute>} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </ErrorBoundary>
   );
 }
