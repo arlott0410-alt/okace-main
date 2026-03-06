@@ -19,6 +19,7 @@ const MyWebsites = lazy(() => import('./pages/MyWebsites'));
 const MemberManagement = lazy(() => import('./pages/MemberManagement'));
 const Account = lazy(() => import('./pages/Account'));
 const ThirdPartyProviders = lazy(() => import('./pages/ThirdPartyProviders'));
+const RosterConfirm = lazy(() => import('./pages/RosterConfirm'));
 
 function ProtectedRoute({ children, allowedRoles, staffOnly }: { children: React.ReactNode; allowedRoles?: string[]; staffOnly?: boolean }) {
   const { user, profile, loading } = useAuth();
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="ประวัติย้ายกะ" element={<Navigate to="/ประวัติ" replace />} />
         <Route path="งานของฉัน" element={<Navigate to="/dashboard" replace />} />
         <Route path="จัดหน้าที่" element={<DutyBoard />} />
+        <Route path="ยืนยันตารางกะ" element={<ProtectedRoute allowedRoles={['admin', 'manager', 'instructor_head']}><RosterConfirm /></ProtectedRoute>} />
         <Route path="ตารางงาน" element={<ScheduleCards />} />
         <Route path="คลังเก็บไฟล์" element={<PhotoVault />} />
         <Route path="กลุ่มงาน" element={<GroupLinks />} />
