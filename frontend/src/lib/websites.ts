@@ -5,8 +5,14 @@
  */
 
 import { supabase } from './supabase';
+import { withCache } from './queryCache';
 import { logAudit } from './audit';
 import type { Website, WebsiteAssignment, Branch, Profile } from './types';
+
+/** จำกัดจำนวน assignment ต่อครั้ง เพื่อประหยัดโควต้า (แสดงได้มากสุดเท่านี้; เกินจะแสดงในหน้าถัดไปถ้ามี) */
+const ASSIGNMENTS_LIST_LIMIT = 2000;
+const ASSIGNMENTS_CACHE_TTL_MS = 60_000;   // 1 นาที
+const STAFF_FOR_ASSIGNMENTS_CACHE_TTL_MS = 120_000; // 2 นาที
 
 const ENTITY = 'managed_website';
 
@@ -153,27 +159,42 @@ export type AssignmentRow = WebsiteAssignment & {
   user?: Profile;
 };
 
-/** Admin: รายการ assignment ทั้งหมด (สำหรับ Tab จัดการผู้ดูแล — แสดงตารางรวม) */
+/** Admin: รายการ assignment ทั้งหมด (สำหรับ Tab จัดการผู้ดูแล — แสดงตารางรวม). ใช้ cache 1 นาที + limit เพื่อประหยัดโควต้า */
 export async function listAllAssignmentsForAdmin(): Promise<AssignmentRow[]> {
-  const { data, error } = await supabase
-    .from('website_assignments')
-    .select('*, website:websites(*, branch:branches(id, name, code)), user:profiles(id, display_name, email, default_branch_id)')
-    .order('user_id')
-    .order('is_primary', { ascending: false });
-  if (error) return [];
-  return (data || []) as AssignmentRow[];
+  return withCache(
+    'website_assignments',
+    { list: 'admin' },
+    async () => {
+      const { data, error } = await supabase
+        .from('website_assignments')
+        .select('*, website:websites(*, branch:branches(id, name, code)), user:profiles(id, display_name, email, default_branch_id)')
+        .order('user_id')
+        .order('is_primary', { ascending: false })
+        .limit(ASSIGNMENTS_LIST_LIMIT);
+      if (error) return [];
+      return (data || []) as AssignmentRow[];
+    },
+    ASSIGNMENTS_CACHE_TTL_MS
+  );
 }
 
-/** Admin: รายชื่อผู้ใช้ที่มอบหมายเว็บได้ (instructor, staff, instructor_head) */
+/** Admin: รายชื่อผู้ใช้ที่มอบหมายเว็บได้ (instructor, staff, instructor_head). ใช้ cache 2 นาที เพื่อประหยัดโควต้า */
 export async function listStaffForAssignments(): Promise<Profile[]> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .in('role', ['instructor', 'staff', 'instructor_head'])
-    .eq('active', true)
-    .order('display_name');
-  if (error) return [];
-  return (data || []) as Profile[];
+  return withCache(
+    'profiles',
+    { list: 'staff_assignments' },
+    async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('role', ['instructor', 'staff', 'instructor_head'])
+        .eq('active', true)
+        .order('display_name');
+      if (error) return [];
+      return (data || []) as Profile[];
+    },
+    STAFF_FOR_ASSIGNMENTS_CACHE_TTL_MS
+  );
 }
 
 export type StaffListFilters = {

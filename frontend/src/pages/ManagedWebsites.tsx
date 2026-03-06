@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
+import { invalidate } from '../lib/queryCache';
 import {
   listWebsitesForAdmin,
   listStaffForAssignments,
@@ -254,13 +255,19 @@ export default function ManagedWebsites() {
     listWebsitesForAdmin(search ? { search } : {}).then(setWebsites);
   };
 
+  /** โหลด assignments ใหม่หลัง mutate — ล้าง cache ก่อนเพื่อให้ได้ข้อมูลล่าสุด */
+  const refetchAssignments = useCallback(() => {
+    invalidate('website_assignments');
+    listAllAssignmentsForAdmin().then(setAllAssignments);
+  }, []);
+
   const deleteWebsite = async (id: string) => {
     setLoading(true);
     try {
       await adminDeleteWebsite(id);
       setConfirmDelete(null);
       refetchWebsites();
-      if (tab === 'assignments') listAllAssignmentsForAdmin().then(setAllAssignments);
+      if (tab === 'assignments') refetchAssignments();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด');
     } finally {
@@ -283,7 +290,7 @@ export default function ManagedWebsites() {
       }
       setModalAssign(false);
       setAssignWebsiteId('');
-      listAllAssignmentsForAdmin().then(setAllAssignments);
+      refetchAssignments();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด');
     } finally {
@@ -319,7 +326,7 @@ export default function ManagedWebsites() {
           }
         }
       }
-      listAllAssignmentsForAdmin().then(setAllAssignments);
+      refetchAssignments();
       setSelectedWebsiteIds([]);
       if (assigned) setErr('');
       if (skipped && !assigned) setErr('รายการที่เลือกมีอยู่แล้วทั้งหมด');
@@ -337,7 +344,7 @@ export default function ManagedWebsites() {
     try {
       await adminUnassignWebsiteFromUser(assignmentId);
       setConfirmUnassign(null);
-      listAllAssignmentsForAdmin().then(setAllAssignments);
+      refetchAssignments();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด');
     } finally {
@@ -349,7 +356,7 @@ export default function ManagedWebsites() {
     setLoading(true);
     try {
       await adminSetPrimaryWebsite(userId, websiteId);
-      listAllAssignmentsForAdmin().then(setAllAssignments);
+      refetchAssignments();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด');
     } finally {
@@ -359,7 +366,7 @@ export default function ManagedWebsites() {
 
   const assignOneAndRefetch = async (websiteId: string, userId: string) => {
     await adminAssignWebsiteToUser(websiteId, userId);
-    listAllAssignmentsForAdmin().then(setAllAssignments);
+    refetchAssignments();
   };
 
   const groupedRows = useMemo(
@@ -705,7 +712,7 @@ export default function ManagedWebsites() {
         onUnassign={async (assignmentId) => {
           try {
             await adminUnassignWebsiteFromUser(assignmentId);
-            listAllAssignmentsForAdmin().then(setAllAssignments);
+            refetchAssignments();
           } catch (e) {
             setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด');
             throw e;
@@ -714,7 +721,7 @@ export default function ManagedWebsites() {
         onSetPrimary={async (userId, websiteId) => {
           try {
             await adminSetPrimaryWebsite(userId, websiteId);
-            listAllAssignmentsForAdmin().then(setAllAssignments);
+            refetchAssignments();
           } catch (e) {
             setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด');
             throw e;

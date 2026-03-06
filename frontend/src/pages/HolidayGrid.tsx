@@ -220,7 +220,7 @@ export default function HolidayGrid() {
         const fallbacks = new Map(staffList.map((s) => [s.id, { branch_id: s.default_branch_id ?? null, shift_id: s.default_shift_id ?? null }]));
         const isNight = (shiftId: string) => getShiftKind(shifts.find((s) => s.id === shiftId)) === 'night';
         getEffectiveForStaffInMonth(ids, start, end, fallbacks, { isNightShiftId: isNight }).then((v) => { if (mounted) setEffectiveByUserByDate(v); });
-      }, 400);
+      }, 700);
     };
     const channel = supabase
       .channel('holiday-grid-shift-changes')

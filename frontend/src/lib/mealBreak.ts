@@ -4,6 +4,7 @@
  */
 
 import { supabase, getApiBase } from './supabase';
+import { withCache } from './queryCache';
 
 export type MealSlotCapacity = {
   on_duty_count: number;
@@ -67,9 +68,17 @@ async function mealProxy<T>(action: string, params: Record<string, unknown>): Pr
   return res.json() as Promise<T>;
 }
 
+/** TTL แคช slot (วินาที) — ลดการยิง Worker เมื่อสลับ tab/refocus */
+const MEAL_SLOTS_CACHE_TTL_MS = 45_000;
+
 export async function fetchMealSlots(workDate: string): Promise<MealSlotsResponse | null> {
   try {
-    const data = await mealProxy<MealSlotsResponse | null>('slots', { p_work_date: workDate });
+    const data = await withCache(
+      'meal_slots',
+      { work_date: workDate },
+      () => mealProxy<MealSlotsResponse | null>('slots', { p_work_date: workDate }),
+      MEAL_SLOTS_CACHE_TTL_MS
+    );
     return data ?? null;
   } catch {
     return null;

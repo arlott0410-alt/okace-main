@@ -4,6 +4,7 @@ import { th } from 'date-fns/locale';
 import { useAuth } from '../lib/auth';
 import { useBranchesShifts } from '../lib/BranchesShiftsContext';
 import { useToast } from '../lib/ToastContext';
+import { invalidate } from '../lib/queryCache';
 import {
   fetchMealSlots,
   bookMealBreak,
@@ -187,6 +188,7 @@ export default function Meal() {
     }
     toast.show('จองสำเร็จ');
     setMessage({ type: 'ok', text: 'จองสำเร็จ' });
+    invalidate('meal_slots');
     fetchSlots(data.work_date);
   };
 
@@ -200,6 +202,7 @@ export default function Meal() {
     }
     toast.show('ยกเลิกการจองแล้ว');
     setMessage({ type: 'ok', text: 'ยกเลิกการจองแล้ว' });
+    invalidate('meal_slots');
     if (data?.work_date) fetchSlots(data.work_date);
   };
 

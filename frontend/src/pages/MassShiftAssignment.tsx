@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { withCache } from '../lib/queryCache';
 import { useAuth } from '../lib/auth';
 import { useBranchesShifts } from '../lib/BranchesShiftsContext';
 import type { Profile, Shift } from '../lib/types';
@@ -127,12 +128,22 @@ export default function MassShiftAssignment() {
 
   useEffect(() => {
     if (!canAccess) return;
-    let q = supabase
-      .from('profiles')
-      .select('id, email, display_name, role, default_branch_id, default_shift_id, active')
-      .eq('active', true)
-      .in('role', [...EMPLOYEE_ROLES]);
-    q.order('display_name').then(({ data }) => setEmployees((data || []) as Profile[]));
+    withCache(
+      'profiles',
+      { list: 'mass_shift_employees' },
+      async () => {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, email, display_name, role, default_branch_id, default_shift_id, active')
+          .eq('active', true)
+          .in('role', [...EMPLOYEE_ROLES])
+          .order('display_name');
+        return (data || []) as Profile[];
+      },
+      120_000
+    )
+      .then(setEmployees)
+      .catch(() => setEmployees([]));
   }, [canAccess]);
 
   const filteredEmployees = useMemo(() => {

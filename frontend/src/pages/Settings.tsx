@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
+import { withCache, invalidate } from '../lib/queryCache';
 import { useAuth } from '../lib/auth';
 import { useBranchesShifts } from '../lib/BranchesShiftsContext';
 import type { Branch, HolidayBookingConfig, HolidayQuotaTier, Shift, MealSettings, MealQuotaRule, LeaveType } from '../lib/types';
@@ -85,14 +86,16 @@ export default function Settings() {
     }
   }
 
+  const SETTINGS_CACHE_TTL_MS = 120_000; // 2 นาที — ลดโควต้าเมื่อสลับกลับมาเปิดตั้งค่า
+
   useEffect(() => {
     loadBranches();
     loadAllowMobile();
-    supabase.from('holiday_booking_config').select('id, target_year_month, open_from, open_until, max_days_per_person').order('target_year_month').then(({ data }) => setBookingConfigs((data || []) as HolidayBookingConfig[]));
-    supabase.from('holiday_quota_tiers').select('id, dimension, user_group, max_people, max_leave, sort_order').order('dimension').order('user_group').order('max_people').then(({ data }) => setQuotaTiers((data || []) as HolidayQuotaTier[]));
+    withCache('holiday_booking_config', {}, () => supabase.from('holiday_booking_config').select('id, target_year_month, open_from, open_until, max_days_per_person').order('target_year_month').then(({ data }) => (data || []) as HolidayBookingConfig[]), SETTINGS_CACHE_TTL_MS).then(setBookingConfigs);
+    withCache('holiday_quota_tiers', {}, () => supabase.from('holiday_quota_tiers').select('id, dimension, user_group, max_people, max_leave, sort_order').order('dimension').order('user_group').order('max_people').then(({ data }) => (data || []) as HolidayQuotaTier[]), SETTINGS_CACHE_TTL_MS).then(setQuotaTiers);
     loadMealSettings();
-    supabase.from('meal_quota_rules').select('id, branch_id, shift_id, website_id, user_group, on_duty_threshold, max_concurrent').order('on_duty_threshold').then(({ data }) => setMealQuotaRules((data || []) as MealQuotaRule[]));
-    supabase.from('leave_types').select('code, name, color, description').order('code').then(({ data }) => setLeaveTypes((data || []) as LeaveType[]));
+    withCache('meal_quota_rules', {}, () => supabase.from('meal_quota_rules').select('id, branch_id, shift_id, website_id, user_group, on_duty_threshold, max_concurrent').order('on_duty_threshold').then(({ data }) => (data || []) as MealQuotaRule[]), SETTINGS_CACHE_TTL_MS).then(setMealQuotaRules);
+    withCache('leave_types', {}, () => supabase.from('leave_types').select('code, name, color, description').order('code').then(({ data }) => (data || []) as LeaveType[]), SETTINGS_CACHE_TTL_MS).then(setLeaveTypes);
   }, []);
 
 
@@ -145,6 +148,7 @@ export default function Settings() {
       }, { onConflict: 'target_year_month' });
     }
     setModalBooking({ open: false, config: null });
+    invalidate('holiday_booking_config');
     supabase.from('holiday_booking_config').select('id, target_year_month, open_from, open_until, max_days_per_person').order('target_year_month').then(({ data }) => setBookingConfigs((data || []) as HolidayBookingConfig[]));
   };
 
@@ -158,12 +162,14 @@ export default function Settings() {
       await supabase.from('holiday_quota_tiers').insert({ dimension: 'combined', user_group: null, max_people: quotaTierForm.max_people, max_leave: quotaTierForm.max_leave, sort_order: nextOrder });
     }
     setModalQuotaTier({ open: false, tier: null });
+    invalidate('holiday_quota_tiers');
     supabase.from('holiday_quota_tiers').select('id, dimension, user_group, max_people, max_leave, sort_order').order('dimension').order('user_group').order('max_people').then(({ data }) => setQuotaTiers((data || []) as HolidayQuotaTier[]));
   };
 
   const deleteQuotaTier = async (id: string) => {
     if (!confirm('ลบเงื่อนไขนี้?')) return;
     await supabase.from('holiday_quota_tiers').delete().eq('id', id);
+    invalidate('holiday_quota_tiers');
     setQuotaTiers((prev) => prev.filter((t) => t.id !== id));
   };
 
@@ -276,6 +282,7 @@ export default function Settings() {
       });
     }
     setModalMealQuota({ open: false, rule: null });
+    invalidate('meal_quota_rules');
     supabase.from('meal_quota_rules').select('id, branch_id, shift_id, website_id, user_group, on_duty_threshold, max_concurrent').order('on_duty_threshold').then(({ data }) => setMealQuotaRules((data || []) as MealQuotaRule[]));
   };
 
@@ -290,12 +297,14 @@ export default function Settings() {
       await supabase.from('leave_types').insert({ code: leaveTypeForm.code.trim().toUpperCase(), name: leaveTypeForm.name.trim(), color: leaveTypeForm.color || null, description: leaveTypeForm.description.trim() || null });
     }
     setModalLeaveType({ open: false, leaveType: null });
+    invalidate('leave_types');
     supabase.from('leave_types').select('code, name, color, description').order('code').then(({ data }) => setLeaveTypes((data || []) as LeaveType[]));
   };
 
   const deleteLeaveType = async (code: string) => {
     if (code === 'X' || !confirm('ลบประเภทการลานี้? (ถ้ามีการใช้งานอยู่จะผิดพลาด)')) return;
     await supabase.from('leave_types').delete().eq('code', code);
+    invalidate('leave_types');
     setLeaveTypes((prev) => prev.filter((lt) => lt.code !== code));
     setModalLeaveType({ open: false, leaveType: null });
   };

@@ -59,25 +59,34 @@ export default function DutyBoard() {
     if (!branchId || !shiftId || !assignmentDate) return;
     setLoading(true);
     const date = assignmentDate;
-    supabase.rpc('rpc_dutyboard', { p_date: date, p_branch_id: branchId, p_shift_id: shiftId }).then(({ data, error }) => {
-      setLoading(false);
-      if (error || !data?.[0]) return;
-      const row = data[0] as { duty_roles?: DutyRole[]; assignments?: DutyAssignment[]; staff?: (Profile & { effective_branch_id?: string | null; effective_shift_id?: string | null })[]; leave_user_ids?: string[]; roster_status?: { status?: string } | null; websites?: WebsiteOption[] };
-      setDutyRoles(Array.isArray(row.duty_roles) ? row.duty_roles : []);
-      setAssignments(Array.isArray(row.assignments) ? row.assignments : []);
-      setStaff(Array.isArray(row.staff) ? row.staff as Profile[] : []);
-      setLeaveIdsForDate(new Set(Array.isArray(row.leave_user_ids) ? row.leave_user_ids : []));
-      setRosterLocked(isRosterLocked((row.roster_status ?? null) as MonthlyRosterStatus | null));
-      if (Array.isArray(row.staff)) {
-        const map = new Map<string, Map<string, EffectiveBranchShift>>();
-        row.staff.forEach((s: Profile & { effective_branch_id?: string | null; effective_shift_id?: string | null }) => {
-          if (!map.has(s.id)) map.set(s.id, new Map());
-          map.get(s.id)!.set(date, { branch_id: s.effective_branch_id ?? null, shift_id: s.effective_shift_id ?? null });
-        });
-        setEffectiveByUserByDate(map);
-      }
-    });
-  }, [branchId, shiftId, assignmentDate]);
+    supabase
+      .rpc('rpc_dutyboard', { p_date: date, p_branch_id: branchId, p_shift_id: shiftId })
+      .then(({ data, error }) => {
+        setLoading(false);
+        if (error || !data?.[0]) {
+          if (error) toast?.show('โหลดจัดหน้าที่ไม่สำเร็จ: ' + (error.message || 'เกิดข้อผิดพลาด'), 'error');
+          return;
+        }
+        const row = data[0] as { duty_roles?: DutyRole[]; assignments?: DutyAssignment[]; staff?: (Profile & { effective_branch_id?: string | null; effective_shift_id?: string | null })[]; leave_user_ids?: string[]; roster_status?: { status?: string } | null; websites?: WebsiteOption[] };
+        setDutyRoles(Array.isArray(row.duty_roles) ? row.duty_roles : []);
+        setAssignments(Array.isArray(row.assignments) ? row.assignments : []);
+        setStaff(Array.isArray(row.staff) ? row.staff as Profile[] : []);
+        setLeaveIdsForDate(new Set(Array.isArray(row.leave_user_ids) ? row.leave_user_ids : []));
+        setRosterLocked(isRosterLocked((row.roster_status ?? null) as MonthlyRosterStatus | null));
+        if (Array.isArray(row.staff)) {
+          const map = new Map<string, Map<string, EffectiveBranchShift>>();
+          row.staff.forEach((s: Profile & { effective_branch_id?: string | null; effective_shift_id?: string | null }) => {
+            if (!map.has(s.id)) map.set(s.id, new Map());
+            map.get(s.id)!.set(date, { branch_id: s.effective_branch_id ?? null, shift_id: s.effective_shift_id ?? null });
+          });
+          setEffectiveByUserByDate(map);
+        }
+      })
+      .catch((err) => {
+        setLoading(false);
+        toast?.show('โหลดจัดหน้าที่ไม่สำเร็จ: ' + (err?.message ?? 'เกิดข้อผิดพลาดจากเครือข่าย'), 'error');
+      });
+  }, [branchId, shiftId, assignmentDate, toast]);
 
   const filteredDutyRoles = useMemo(() => {
     if (!roleSearch.trim()) return dutyRoles;

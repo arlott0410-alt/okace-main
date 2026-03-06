@@ -159,7 +159,12 @@ export default function Dashboard() {
 
   /** โหลดเมนูลัด (ทุกคนเห็น) */
   const loadShortcuts = () => {
-    supabase.from('dashboard_shortcuts').select('id, url, title, icon_url, sort_order').order('sort_order').then(({ data }) => setShortcuts((data || []) as DashboardShortcut[]));
+    supabase
+      .from('dashboard_shortcuts')
+      .select('id, url, title, icon_url, sort_order')
+      .order('sort_order')
+      .then(({ data }) => setShortcuts((data || []) as DashboardShortcut[]))
+      .catch(() => setShortcuts([]));
   };
   useEffect(() => { loadShortcuts(); }, []);
 
