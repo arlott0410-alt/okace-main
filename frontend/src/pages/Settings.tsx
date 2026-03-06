@@ -112,6 +112,7 @@ export default function Settings() {
     }
     setModalBranch({ open: false, branch: null });
     loadBranches();
+    refetchBranchesShifts(); // อัป Context + edge cache ให้หน้าอื่นเห็นสาขาล่าสุด
   };
 
   /** บันทึกกติกากลางวันหยุด (วัน/คน/เดือน) — ใช้บังคับไม่ให้หัวหน้าตั้งเกินโควตา */

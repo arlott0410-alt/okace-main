@@ -4,7 +4,11 @@
 
 ---
 
-## A) Workers KV — Cache allow_mobile_access แบบ edge-wide
+## A) Workers KV — Edge cache
+
+KV ใช้สำหรับ:
+- **allow_mobile_access** (middleware): cache ค่าปิด/เปิดมือถือ 60 วินาที
+- **cache:branches** / **cache:shifts** (GET /api/cache/branches, /api/cache/shifts): cache รายการสาขา/กะ 5 นาที ลดการยิง Supabase เมื่อโหลดแอป
 
 1. ใน Cloudflare Dashboard ไปที่ **Workers & Pages** → **KV** → **Create a namespace**
 2. ตั้งชื่อ namespace (เช่น `OKACE_KV` หรือชื่อที่ต้องการ) → สร้าง
@@ -14,7 +18,7 @@
    - **KV namespace**: เลือก namespace ที่สร้างในขั้น 1
 5. Save
 
-**Fallback:** ถ้าไม่ผูก `OKACE_KV` ระบบจะใช้ in-memory cache แบบเดิม (ต่อ isolate) ไม่พัง
+**Fallback:** ถ้าไม่ผูก `OKACE_KV` ระบบจะใช้ in-memory cache (allow_mobile) และดึง branches/shifts ตรงจาก Supabase ไม่พัง
 
 ---
 
