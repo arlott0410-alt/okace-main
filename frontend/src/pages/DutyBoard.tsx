@@ -59,8 +59,9 @@ export default function DutyBoard() {
     if (!branchId || !shiftId || !assignmentDate) return;
     setLoading(true);
     const date = assignmentDate;
-    supabase
-      .rpc('rpc_dutyboard', { p_date: date, p_branch_id: branchId, p_shift_id: shiftId })
+    Promise.resolve(
+      supabase.rpc('rpc_dutyboard', { p_date: date, p_branch_id: branchId, p_shift_id: shiftId })
+    )
       .then(({ data, error }) => {
         setLoading(false);
         if (error || !data?.[0]) {
@@ -82,9 +83,10 @@ export default function DutyBoard() {
           setEffectiveByUserByDate(map);
         }
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         setLoading(false);
-        toast?.show('โหลดจัดหน้าที่ไม่สำเร็จ: ' + (err?.message ?? 'เกิดข้อผิดพลาดจากเครือข่าย'), 'error');
+        const msg = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดจากเครือข่าย';
+        toast?.show('โหลดจัดหน้าที่ไม่สำเร็จ: ' + msg, 'error');
       });
   }, [branchId, shiftId, assignmentDate, toast]);
 

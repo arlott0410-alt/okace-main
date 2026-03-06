@@ -91,11 +91,15 @@ export default function Settings() {
   useEffect(() => {
     loadBranches();
     loadAllowMobile();
-    withCache('holiday_booking_config', {}, () => supabase.from('holiday_booking_config').select('id, target_year_month, open_from, open_until, max_days_per_person').order('target_year_month').then(({ data }) => (data || []) as HolidayBookingConfig[]), SETTINGS_CACHE_TTL_MS).then(setBookingConfigs);
-    withCache('holiday_quota_tiers', {}, () => supabase.from('holiday_quota_tiers').select('id, dimension, user_group, max_people, max_leave, sort_order').order('dimension').order('user_group').order('max_people').then(({ data }) => (data || []) as HolidayQuotaTier[]), SETTINGS_CACHE_TTL_MS).then(setQuotaTiers);
+    const loadBooking = () => Promise.resolve(supabase.from('holiday_booking_config').select('id, target_year_month, open_from, open_until, max_days_per_person').order('target_year_month')).then(({ data }) => (data || []) as HolidayBookingConfig[]);
+    const loadQuotaTiers = () => Promise.resolve(supabase.from('holiday_quota_tiers').select('id, dimension, user_group, max_people, max_leave, sort_order').order('dimension').order('user_group').order('max_people')).then(({ data }) => (data || []) as HolidayQuotaTier[]);
+    const loadMealRules = () => Promise.resolve(supabase.from('meal_quota_rules').select('id, branch_id, shift_id, website_id, user_group, on_duty_threshold, max_concurrent').order('on_duty_threshold')).then(({ data }) => (data || []) as MealQuotaRule[]);
+    const loadLeaveTypes = () => Promise.resolve(supabase.from('leave_types').select('code, name, color, description').order('code')).then(({ data }) => (data || []) as LeaveType[]);
+    withCache('holiday_booking_config', {}, loadBooking, SETTINGS_CACHE_TTL_MS).then(setBookingConfigs);
+    withCache('holiday_quota_tiers', {}, loadQuotaTiers, SETTINGS_CACHE_TTL_MS).then(setQuotaTiers);
     loadMealSettings();
-    withCache('meal_quota_rules', {}, () => supabase.from('meal_quota_rules').select('id, branch_id, shift_id, website_id, user_group, on_duty_threshold, max_concurrent').order('on_duty_threshold').then(({ data }) => (data || []) as MealQuotaRule[]), SETTINGS_CACHE_TTL_MS).then(setMealQuotaRules);
-    withCache('leave_types', {}, () => supabase.from('leave_types').select('code, name, color, description').order('code').then(({ data }) => (data || []) as LeaveType[]), SETTINGS_CACHE_TTL_MS).then(setLeaveTypes);
+    withCache('meal_quota_rules', {}, loadMealRules, SETTINGS_CACHE_TTL_MS).then(setMealQuotaRules);
+    withCache('leave_types', {}, loadLeaveTypes, SETTINGS_CACHE_TTL_MS).then(setLeaveTypes);
   }, []);
 
 
