@@ -170,20 +170,28 @@ export default function DutyBoard() {
   }, [staff, userGroupFilter]);
 
   useEffect(() => {
+    if (!branchId || !shiftId || !assignmentDate) return;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel('duty_assignments')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'duty_assignments' }, () => {
-        if (!branchId || !shiftId || !assignmentDate) return;
-        supabase
-          .from('duty_assignments')
-          .select('*')
-          .eq('branch_id', branchId)
-          .eq('shift_id', shiftId)
-          .eq('assignment_date', assignmentDate)
-          .then(({ data }) => setAssignments(data || []));
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          debounceTimer = null;
+          supabase
+            .from('duty_assignments')
+            .select('id, branch_id, shift_id, duty_role_id, user_id, assignment_date')
+            .eq('branch_id', branchId)
+            .eq('shift_id', shiftId)
+            .eq('assignment_date', assignmentDate)
+            .then(({ data }) => setAssignments(data || []));
+        }, 300);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
   }, [branchId, shiftId, assignmentDate]);
 
   const getAssignments = (roleId: string) => assignments.filter((a) => a.duty_role_id === roleId);
@@ -216,7 +224,7 @@ export default function DutyBoard() {
     });
     if (error) {
       if (error.code === '23505') {
-        const { data } = await supabase.from('duty_assignments').select('*').eq('branch_id', branchId).eq('shift_id', shiftId).eq('assignment_date', assignmentDate);
+        const { data } = await supabase.from('duty_assignments').select('id, branch_id, shift_id, duty_role_id, user_id, assignment_date').eq('branch_id', branchId).eq('shift_id', shiftId).eq('assignment_date', assignmentDate);
         setAssignments(data || []);
         toast.show(
           'ไม่สามารถเพิ่มได้ — คนนี้อยู่ในหน้าที่นี้แล้ว หรือฐานข้อมูลยังจำกัดหนึ่งคนต่อหนึ่งหน้าที่ (ให้รัน migration 22_duty_assignments_ensure_multi_user.sql ใน Supabase)',
@@ -231,7 +239,7 @@ export default function DutyBoard() {
     const roleName = dutyRoles.find((r) => r.id === roleId)?.name ?? '—';
     const userName = staff.find((s) => s.id === userId)?.display_name || staff.find((s) => s.id === userId)?.email || '—';
     await logAudit('duty_assign', 'duty_assignments', null, { duty_role_id: roleId, user_id: userId, assignment_date: assignmentDate }, `จัด ${userName} ในหน้าที่ ${roleName} วันที่ ${assignmentDate}`);
-    const { data } = await supabase.from('duty_assignments').select('*').eq('branch_id', branchId).eq('shift_id', shiftId).eq('assignment_date', assignmentDate);
+    const { data } = await supabase.from('duty_assignments').select('id, branch_id, shift_id, duty_role_id, user_id, assignment_date').eq('branch_id', branchId).eq('shift_id', shiftId).eq('assignment_date', assignmentDate);
     setAssignments(data || []);
     setLoading(false);
     toast.show('จัดหน้าที่แล้ว', 'success');
@@ -321,7 +329,7 @@ export default function DutyBoard() {
     await logAudit('duty_random', 'duty_assignments', null, { assignment_date: assignmentDate }, `สุ่มจัดหน้าที่อัตโนมัติ วันที่ ${assignmentDate}`);
     const { data } = await supabase
       .from('duty_assignments')
-      .select('*')
+      .select('id, branch_id, shift_id, duty_role_id, user_id, assignment_date')
       .eq('branch_id', branchId)
       .eq('shift_id', shiftId)
       .eq('assignment_date', assignmentDate);

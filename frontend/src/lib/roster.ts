@@ -13,7 +13,7 @@ export async function getRosterStatus(
   const monthStart = month + '-01';
   const { data, error } = await supabase
     .from('monthly_roster_status')
-    .select('*')
+    .select('id, branch_id, month, status, confirmed_by, confirmed_at, unlock_reason, unlocked_by, unlocked_at')
     .eq('branch_id', branchId)
     .eq('month', monthStart)
     .maybeSingle();

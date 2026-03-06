@@ -35,7 +35,7 @@ export default function Breaks() {
   // Admin: คนที่กำลังพักอยู่ + ประวัติ
   const [activeBreaksList, setActiveBreaksList] = useState<(BreakLog & { profile?: { display_name: string | null; email: string } })[]>([]);
   const [historyList, setHistoryList] = useState<(BreakLog & { profiles?: { display_name: string | null } | null })[]>([]);
-  const [historyTotalCount, setHistoryTotalCount] = useState(0);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const historyPageSize = 20;
   const [historyFilters, setHistoryFilters] = useState({ dateFrom: '', dateTo: '', branchId: '', shiftId: '', userGroup: '' as '' | UserGroup, searchName: '' });
@@ -69,7 +69,7 @@ export default function Breaks() {
     if (!user?.id || !branchId || !shiftId) return;
     supabase
       .from('break_logs')
-      .select('*')
+      .select('id, user_id, branch_id, shift_id, break_date, started_at, ended_at, status, user_group, break_type')
       .eq('user_id', user.id)
       .eq('break_date', breakDate)
       .eq('status', 'active')
@@ -100,23 +100,31 @@ export default function Breaks() {
       searchName: historyFilters.searchName?.trim() || undefined,
       page: historyPage,
       pageSize: historyPageSize,
-    }).then(({ data, totalCount }) => {
+    }).then(({ data, hasMore }) => {
       setHistoryList(data);
-      setHistoryTotalCount(totalCount);
+      setHistoryHasMore(hasMore);
     });
   }, [canGlobalViewBreaks, historyFilters.branchId, historyFilters.shiftId, historyFilters.dateFrom, historyFilters.dateTo, historyFilters.userGroup, historyFilters.searchName, historyPage, historyPageSize]);
 
   useEffect(() => {
     if (!canGlobalViewBreaks) return;
     const ug = historyFilters.userGroup || undefined;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel('break_logs_admin')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'break_logs' }, () => {
-        if (myUserGroup) getActiveBreakCount(branchId, shiftId, breakDate, myUserGroup).then(setCurrentOnBreak);
-        getActiveBreaks(branchId, shiftId, breakDate, ug).then(setActiveBreaksList);
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          debounceTimer = null;
+          if (myUserGroup) getActiveBreakCount(branchId, shiftId, breakDate, myUserGroup).then(setCurrentOnBreak);
+          getActiveBreaks(branchId, shiftId, breakDate, ug).then(setActiveBreaksList);
+        }, 300);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
   }, [canGlobalViewBreaks, branchId, shiftId, breakDate, historyFilters.userGroup, myUserGroup]);
 
   const startBreak = async () => {
@@ -409,7 +417,7 @@ export default function Breaks() {
             </table>
           </div>
           <div className="flex items-center gap-3 mt-2 text-sm text-premium-gold">
-            <span>ทั้งหมด {historyTotalCount} รายการ</span>
+            <span>หน้า {historyPage}</span>
             <button
               type="button"
               disabled={historyPage <= 1}
@@ -418,10 +426,9 @@ export default function Breaks() {
             >
               ก่อนหน้า
             </button>
-            <span>หน้า {historyPage} จาก {Math.max(1, Math.ceil(historyTotalCount / historyPageSize))}</span>
             <button
               type="button"
-              disabled={historyPage >= Math.ceil(historyTotalCount / historyPageSize)}
+              disabled={!historyHasMore}
               onClick={() => setHistoryPage((p) => p + 1)}
               className="px-2 py-1 rounded border border-premium-gold/30 disabled:opacity-50 disabled:cursor-not-allowed"
             >

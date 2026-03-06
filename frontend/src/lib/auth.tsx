@@ -53,7 +53,7 @@ export function setStoredShiftId(id: string) {
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*, branch:branches(*), shift:shifts(*)')
+    .select('id, email, display_name, role, default_branch_id, default_shift_id, active, created_at, updated_at, branch:branches(id, name, code), shift:shifts(id, name, code, start_time, end_time, sort_order)')
     .eq('id', userId)
     .single();
   if (error || !data) return null;

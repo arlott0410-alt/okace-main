@@ -39,13 +39,21 @@ export default function RosterConfirm() {
 
   useEffect(() => {
     if (!branchId) return;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel('roster_status')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'monthly_roster_status' }, () => {
-        getRosterStatus(branchId, month).then(setStatus);
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          debounceTimer = null;
+          getRosterStatus(branchId, month).then(setStatus);
+        }, 300);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
   }, [branchId, month]);
 
   const locked = isRosterLocked(status);

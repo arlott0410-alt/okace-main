@@ -58,7 +58,7 @@ export default function Settings() {
   const [applyShiftResult, setApplyShiftResult] = useState<{ count: number } | { error: string } | null>(null);
 
   const loadBranches = () => {
-    supabase.from('branches').select('*').order('name').then(({ data }) => setBranches(data || []));
+    supabase.from('branches').select('id, name, code, active, created_at, updated_at').order('name').then(({ data }) => setBranches(data || []));
   };
 
   async function loadAllowMobile() {
@@ -88,10 +88,10 @@ export default function Settings() {
   useEffect(() => {
     loadBranches();
     loadAllowMobile();
-    supabase.from('holiday_booking_config').select('*').order('target_year_month').then(({ data }) => setBookingConfigs((data || []) as HolidayBookingConfig[]));
-    supabase.from('holiday_quota_tiers').select('*').order('dimension').order('user_group').order('max_people').then(({ data }) => setQuotaTiers((data || []) as HolidayQuotaTier[]));
+    supabase.from('holiday_booking_config').select('id, target_year_month, open_from, open_until, max_days_per_person').order('target_year_month').then(({ data }) => setBookingConfigs((data || []) as HolidayBookingConfig[]));
+    supabase.from('holiday_quota_tiers').select('id, dimension, user_group, max_people, max_leave, sort_order').order('dimension').order('user_group').order('max_people').then(({ data }) => setQuotaTiers((data || []) as HolidayQuotaTier[]));
     loadMealSettings();
-    supabase.from('meal_quota_rules').select('*').order('on_duty_threshold').then(({ data }) => setMealQuotaRules((data || []) as MealQuotaRule[]));
+    supabase.from('meal_quota_rules').select('id, branch_id, shift_id, website_id, user_group, on_duty_threshold, max_concurrent').order('on_duty_threshold').then(({ data }) => setMealQuotaRules((data || []) as MealQuotaRule[]));
     supabase.from('leave_types').select('code, name, color, description').order('code').then(({ data }) => setLeaveTypes((data || []) as LeaveType[]));
   }, []);
 
@@ -145,7 +145,7 @@ export default function Settings() {
       }, { onConflict: 'target_year_month' });
     }
     setModalBooking({ open: false, config: null });
-    supabase.from('holiday_booking_config').select('*').order('target_year_month').then(({ data }) => setBookingConfigs((data || []) as HolidayBookingConfig[]));
+    supabase.from('holiday_booking_config').select('id, target_year_month, open_from, open_until, max_days_per_person').order('target_year_month').then(({ data }) => setBookingConfigs((data || []) as HolidayBookingConfig[]));
   };
 
   const saveQuotaTier = async () => {
@@ -158,7 +158,7 @@ export default function Settings() {
       await supabase.from('holiday_quota_tiers').insert({ dimension: 'combined', user_group: null, max_people: quotaTierForm.max_people, max_leave: quotaTierForm.max_leave, sort_order: nextOrder });
     }
     setModalQuotaTier({ open: false, tier: null });
-    supabase.from('holiday_quota_tiers').select('*').order('dimension').order('user_group').order('max_people').then(({ data }) => setQuotaTiers((data || []) as HolidayQuotaTier[]));
+    supabase.from('holiday_quota_tiers').select('id, dimension, user_group, max_people, max_leave, sort_order').order('dimension').order('user_group').order('max_people').then(({ data }) => setQuotaTiers((data || []) as HolidayQuotaTier[]));
   };
 
   const deleteQuotaTier = async (id: string) => {
@@ -189,7 +189,7 @@ export default function Settings() {
   };
 
   const loadMealSettings = () => {
-    supabase.from('meal_settings').select('*').order('effective_from', { ascending: false }).limit(1).maybeSingle().then(({ data }) => {
+    supabase.from('meal_settings').select('id, effective_from, is_enabled, rounds_json, scope_meal_quota_by_website, scope_holiday_quota_by_website, max_holiday_days_per_person_per_month').order('effective_from', { ascending: false }).limit(1).maybeSingle().then(({ data }) => {
       setMealSettings((data || null) as MealSettings | null);
       if (data) {
         const json = (data as MealSettings).rounds_json ?? {};
@@ -276,7 +276,7 @@ export default function Settings() {
       });
     }
     setModalMealQuota({ open: false, rule: null });
-    supabase.from('meal_quota_rules').select('*').order('on_duty_threshold').then(({ data }) => setMealQuotaRules((data || []) as MealQuotaRule[]));
+    supabase.from('meal_quota_rules').select('id, branch_id, shift_id, website_id, user_group, on_duty_threshold, max_concurrent').order('on_duty_threshold').then(({ data }) => setMealQuotaRules((data || []) as MealQuotaRule[]));
   };
 
   const saveLeaveType = async () => {

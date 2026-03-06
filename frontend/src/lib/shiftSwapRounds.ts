@@ -68,7 +68,7 @@ export async function deleteRound(roundId: string): Promise<void> {
 export async function listAssignments(roundId: string): Promise<ShiftSwapAssignment[]> {
   const { data, error } = await supabase
     .from('shift_swap_assignments')
-    .select('*')
+    .select('id, round_id, swap_date, user_id, from_shift_id, to_shift_id, partner_id, created_at')
     .eq('round_id', roundId)
     .order('swap_date')
     .order('user_id');
@@ -175,7 +175,7 @@ function instructorOrder(arr: StaffEntry[]): StaffEntry[] {
 export async function generatePreview(roundId: string): Promise<PreviewAssignment[]> {
   const { data: round, error: roundErr } = await supabase
     .from('shift_swap_rounds')
-    .select('*')
+    .select('id, branch_id, website_id, start_date, end_date, pairs_per_day, status, created_by, created_at, updated_at')
     .eq('id', roundId)
     .single();
   if (roundErr || !round) throw new Error('ไม่พบรอบสลับกะ');

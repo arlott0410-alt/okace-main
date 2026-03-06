@@ -67,16 +67,23 @@ export default function TransferHistory() {
   }, [loadList]);
 
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const onEvent = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        loadList().then((withMeta) => setList(withMeta));
+      }, 350);
+    };
     const channel = supabase
       .channel('transfer_history')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cross_branch_transfers' }, () => {
-        loadList().then((withMeta) => setList(withMeta));
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'shift_swaps' }, () => {
-        loadList().then((withMeta) => setList(withMeta));
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cross_branch_transfers' }, onEvent)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shift_swaps' }, onEvent)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
   }, [loadList]);
 
   const handleCancel = async (t: ShiftChangeHistoryItemWithMeta) => {

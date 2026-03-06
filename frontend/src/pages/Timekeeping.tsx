@@ -54,7 +54,7 @@ export default function Timekeeping() {
     const date = logicalDate;
     supabase
       .from('work_logs')
-      .select('*')
+      .select('id, user_id, branch_id, shift_id, logical_date, log_type, logged_at, created_at, user_group')
       .eq('user_id', user.id)
       .eq('logical_date', date)
       .order('logged_at', { ascending: true })

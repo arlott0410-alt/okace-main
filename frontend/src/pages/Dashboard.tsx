@@ -165,16 +165,23 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!profile?.id || !showScheduledChanges) return;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        getMyScheduledShiftChanges(profile!.id).then(setScheduledChanges);
+      }, 300);
+    };
     const channel = supabase
       .channel('dashboard-scheduled-shifts')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'shift_swaps' }, () => {
-        getMyScheduledShiftChanges(profile.id).then(setScheduledChanges);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cross_branch_transfers' }, () => {
-        getMyScheduledShiftChanges(profile.id).then(setScheduledChanges);
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shift_swaps' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cross_branch_transfers' }, refresh)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
   }, [profile?.id, showScheduledChanges]);
 
   const getShiftLabelById = (id: string) => getShiftLabel(getShiftKind(shifts.find((s) => s.id === id)));

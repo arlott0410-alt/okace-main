@@ -368,7 +368,7 @@ export async function listTransfers(
 ): Promise<CrossBranchTransfer[]> {
   let q = supabase
     .from('cross_branch_transfers')
-    .select('*')
+    .select('id, user_id, from_branch_id, to_branch_id, from_shift_id, to_shift_id, start_date, end_date, reason, status, approved_by, approved_at, reject_reason, admin_note, created_at, skipped_dates')
     .order('created_at', { ascending: false });
   if (!isAdmin) q = q.eq('user_id', currentUserId);
   if (filters.userId) q = q.eq('user_id', filters.userId);

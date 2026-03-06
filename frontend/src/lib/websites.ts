@@ -77,7 +77,7 @@ export async function adminUpdateWebsite(
   id: string,
   payload: { name?: string; alias?: string; url?: string | null; description?: string | null; logo_path?: string | null; is_active?: boolean }
 ): Promise<void> {
-  const { data: old } = await supabase.from('websites').select('*').eq('id', id).single();
+  const { data: old } = await supabase.from('websites').select('id, name, alias, url, description, logo_path, branch_id, is_active, created_at, updated_at').eq('id', id).single();
   const update: Record<string, unknown> = {};
   if (payload.name !== undefined) update.name = payload.name.trim();
   if (payload.alias !== undefined) update.alias = payload.alias.trim();
@@ -95,7 +95,7 @@ export async function adminUpdateWebsite(
 
 /** Admin: ลบเว็บ (และ assignments ที่ผูกอยู่จะถูกลบ CASCADE) */
 export async function adminDeleteWebsite(id: string): Promise<void> {
-  const { data: old } = await supabase.from('websites').select('*').eq('id', id).single();
+  const { data: old } = await supabase.from('websites').select('id, name, alias, url, description, logo_path, branch_id, is_active, created_at, updated_at').eq('id', id).single();
   const { error } = await supabase.from('websites').delete().eq('id', id);
   if (error) throw new Error(error.message);
   await logAudit('WEBSITE_DELETE', ENTITY, id, { deleted: old ?? null });
@@ -121,7 +121,7 @@ export async function adminAssignWebsiteToUser(websiteId: string, userId: string
 
 /** Admin: เอาเว็บออกจาก user */
 export async function adminUnassignWebsiteFromUser(assignmentId: string): Promise<void> {
-  const { data: row } = await supabase.from('website_assignments').select('*').eq('id', assignmentId).single();
+  const { data: row } = await supabase.from('website_assignments').select('id, website_id, user_id').eq('id', assignmentId).single();
   if (!row) throw new Error('ไม่พบรายการ');
   const { error } = await supabase.from('website_assignments').delete().eq('id', assignmentId);
   if (error) throw new Error(error.message);
@@ -185,7 +185,7 @@ export type StaffListFilters = {
   offset: number;
 };
 
-/** Admin: รายชื่อผู้ใช้แบบแบ่งหน้า + filter (สำหรับ UI ที่ scale ได้) */
+/** Admin: รายชื่อผู้ใช้แบบแบ่งหน้า + filter. ใช้ limit+1 แทน exact count เพื่อลด row reads */
 export async function listStaffForAssignmentsPaginated(
   filters: StaffListFilters
 ): Promise<{ data: Profile[]; hasMore: boolean }> {
@@ -193,11 +193,11 @@ export async function listStaffForAssignmentsPaginated(
   const offset = Math.max(0, filters.offset || 0);
   let q = supabase
     .from('profiles')
-    .select('id, display_name, email, role, default_branch_id, default_shift_id, active, created_at, updated_at, branch:branches(id, name, code), shift:shifts(id, name, code)', { count: 'exact' })
+    .select('id, display_name, email, role, default_branch_id, default_shift_id, active, created_at, updated_at, branch:branches(id, name, code), shift:shifts(id, name, code)')
     .in('role', ['instructor', 'staff', 'instructor_head'])
     .eq('active', true)
     .order('display_name')
-    .range(offset, offset + limit - 1);
+    .range(offset, offset + limit);
   if (filters.search?.trim()) {
     const s = filters.search.trim();
     q = q.or(`display_name.ilike.%${s}%,email.ilike.%${s}%`);
@@ -205,11 +205,12 @@ export async function listStaffForAssignmentsPaginated(
   if (filters.branch_id) q = q.eq('default_branch_id', filters.branch_id);
   if (filters.shift_id) q = q.eq('default_shift_id', filters.shift_id);
   if (filters.role) q = q.eq('role', filters.role);
-  const { data, error, count } = await q;
+  const { data, error } = await q;
   if (error) return { data: [], hasMore: false };
   const list = (data || []) as unknown as Profile[];
-  const hasMore = (count ?? 0) > offset + list.length;
-  return { data: list, hasMore };
+  const hasMore = list.length > limit;
+  const dataSlice = hasMore ? list.slice(0, limit) : list;
+  return { data: dataSlice, hasMore };
 }
 
 export type WebsiteListFilters = {
@@ -218,7 +219,7 @@ export type WebsiteListFilters = {
   offset: number;
 };
 
-/** Admin: รายการเว็บแบบแบ่งหน้า (สำหรับ UI ที่ scale ได้) */
+/** Admin: รายการเว็บแบบแบ่งหน้า. ใช้ limit+1 แทน exact count เพื่อลด row reads */
 export async function listWebsitesForAdminPaginated(
   filters: WebsiteListFilters
 ): Promise<{ data: (Website & { branch?: Branch })[]; hasMore: boolean }> {
@@ -226,16 +227,17 @@ export async function listWebsitesForAdminPaginated(
   const offset = Math.max(0, filters.offset || 0);
   let q = supabase
     .from('websites')
-    .select('*, branch:branches(id, name, code)', { count: 'exact' })
+    .select('id, name, alias, branch_id, active, created_at, updated_at, branch:branches(id, name, code)')
     .order('name')
-    .range(offset, offset + limit - 1);
+    .range(offset, offset + limit);
   if (filters.search?.trim()) {
     const s = filters.search.trim();
     q = q.or(`name.ilike.%${s}%,alias.ilike.%${s}%`);
   }
-  const { data, error, count } = await q;
+  const { data, error } = await q;
   if (error) return { data: [], hasMore: false };
   const list = (data || []) as (Website & { branch?: Branch })[];
-  const hasMore = (count ?? 0) > offset + list.length;
-  return { data: list, hasMore };
+  const hasMore = list.length > limit;
+  const dataSlice = hasMore ? list.slice(0, limit) : list;
+  return { data: dataSlice, hasMore };
 }

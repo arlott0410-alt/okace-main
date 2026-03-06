@@ -26,8 +26,8 @@ export function BranchesShiftsProvider({ children }: { children: ReactNode }) {
     invalidate('branches');
     invalidate('shifts');
     Promise.all([
-      supabase.from('branches').select('*').eq('active', true).order('name').then(({ data }) => data || []),
-      supabase.from('shifts').select('*').eq('active', true).order('sort_order').then(({ data }) => data || []),
+      supabase.from('branches').select('id, name, code, active, created_at, updated_at').eq('active', true).order('name').then(({ data }) => data || []),
+      supabase.from('shifts').select('id, name, code, start_time, end_time, sort_order, active, created_at, updated_at').eq('active', true).order('sort_order').then(({ data }) => data || []),
     ]).then(([b, s]) => {
       if (mounted.current) {
         setBranches((b || []) as Branch[]);
@@ -42,11 +42,11 @@ export function BranchesShiftsProvider({ children }: { children: ReactNode }) {
     const SLOW_CHANGE_TTL_MS = 10 * 60 * 1000; // 10 min for branches/shifts (reduce refetch across route changes)
     const load = async () => {
       const p1 = withCache('branches', BRANCHES_KEY, async () => {
-        const { data } = await supabase.from('branches').select('*').eq('active', true).order('name');
+        const { data } = await supabase.from('branches').select('id, name, code, active, created_at, updated_at').eq('active', true).order('name');
         return data || [];
       }, SLOW_CHANGE_TTL_MS);
       const p2 = withCache('shifts', SHIFTS_KEY, async () => {
-        const { data } = await supabase.from('shifts').select('*').eq('active', true).order('sort_order');
+        const { data } = await supabase.from('shifts').select('id, name, code, start_time, end_time, sort_order, active, created_at, updated_at').eq('active', true).order('sort_order');
         return data || [];
       }, SLOW_CHANGE_TTL_MS);
       const [b, s] = await Promise.all([p1, p2]);

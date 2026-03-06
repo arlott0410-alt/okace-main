@@ -12,7 +12,7 @@ import type { UserGroup } from './types';
 export async function getBreakRules(branchId: string, shiftId: string, userGroup: UserGroup): Promise<BreakRule[]> {
   const { data, error } = await supabase
     .from('break_rules')
-    .select('*')
+    .select('id, branch_id, shift_id, min_staff, max_staff, concurrent_breaks, user_group')
     .eq('user_group', userGroup)
     .or(`and(branch_id.eq.${branchId},shift_id.eq.${shiftId}),and(branch_id.is.null,shift_id.is.null)`)
     .order('min_staff');
@@ -46,7 +46,7 @@ export async function getActiveBreakCount(
   return count ?? 0;
 }
 
-/** รายชื่อคนที่กำลังพักอยู่ (สำหรับ Admin อาจส่ง userGroup เพื่อกรอง) */
+/** รายชื่อคนที่กำลังพักอยู่ (สำหรับ Admin อาจส่ง userGroup เพื่อกรอง). Batch-fetch profiles เพื่อลด N+1 */
 export async function getActiveBreaks(
   branchId: string,
   shiftId: string,
@@ -55,7 +55,7 @@ export async function getActiveBreaks(
 ): Promise<(BreakLog & { profile?: { display_name: string | null; email: string } })[]> {
   let q = supabase
     .from('break_logs')
-    .select('*')
+    .select('id, user_id, branch_id, shift_id, break_date, started_at, ended_at, status, user_group, break_type')
     .eq('branch_id', branchId)
     .eq('shift_id', shiftId)
     .eq('break_date', breakDate)
@@ -65,22 +65,26 @@ export async function getActiveBreaks(
   const { data, error } = await q.order('started_at', { ascending: false });
   if (error) return [];
   const list = (data || []) as BreakLog[];
-  const withProfile = await Promise.all(
-    list.map(async (log) => {
-      const { data: p } = await supabase
-        .from('profiles')
-        .select('display_name, email')
-        .eq('id', log.user_id)
-        .single();
-      return { ...log, profile: p ?? undefined };
-    })
-  );
-  return withProfile;
+  const userIds = [...new Set(list.map((log) => log.user_id).filter(Boolean))];
+  let profileMap = new Map<string, { display_name: string | null; email: string }>();
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, display_name, email')
+      .in('id', userIds);
+    (profiles || []).forEach((p: { id: string; display_name: string | null; email: string }) => {
+      profileMap.set(p.id, { display_name: p.display_name, email: p.email ?? '' });
+    });
+  }
+  return list.map((log) => ({
+    ...log,
+    profile: profileMap.get(log.user_id),
+  }));
 }
 
 const HISTORY_PAGE_SIZE = 20;
 
-/** ประวัติการพัก (รายวัน/รายคน) — ส่ง userGroup, pagination, searchByName */
+/** ประวัติการพัก (รายวัน/รายคน) — ส่ง userGroup, pagination, searchByName. ใช้ hasMore แทน exact count เพื่อลด row reads */
 export async function getBreakHistory(filters: {
   branchId?: string;
   shiftId?: string;
@@ -91,7 +95,7 @@ export async function getBreakHistory(filters: {
   page?: number;
   pageSize?: number;
   searchName?: string;
-}): Promise<{ data: BreakLog[]; totalCount: number }> {
+}): Promise<{ data: (BreakLog & { profiles: { display_name: string | null } | null })[]; hasMore: boolean }> {
   const page = Math.max(1, filters.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? HISTORY_PAGE_SIZE));
   let userIds: string[] | undefined;
@@ -101,14 +105,15 @@ export async function getBreakHistory(filters: {
       .select('id')
       .ilike('display_name', `%${filters.searchName.trim()}%`);
     userIds = (profiles ?? []).map((p) => p.id);
-    if (userIds.length === 0) return { data: [], totalCount: 0 };
+    if (userIds.length === 0) return { data: [], hasMore: false };
   }
+  const from = (page - 1) * pageSize;
   let q = supabase
     .from('break_logs')
-    .select('*, profiles(display_name)', { count: 'exact' })
+    .select('id, user_id, branch_id, shift_id, break_date, started_at, ended_at, status, user_group, break_type, profiles(display_name)')
     .or('break_type.is.null,break_type.eq.NORMAL')
     .order('started_at', { ascending: false })
-    .range((page - 1) * pageSize, page * pageSize - 1);
+    .range(from, from + pageSize);
   if (filters.branchId) q = q.eq('branch_id', filters.branchId);
   if (filters.shiftId) q = q.eq('shift_id', filters.shiftId);
   if (filters.userId) q = q.eq('user_id', filters.userId);
@@ -116,9 +121,12 @@ export async function getBreakHistory(filters: {
   if (filters.userGroup) q = q.eq('user_group', filters.userGroup);
   if (filters.dateFrom) q = q.gte('break_date', filters.dateFrom);
   if (filters.dateTo) q = q.lte('break_date', filters.dateTo);
-  const { data, error, count } = await q;
-  if (error) return { data: [], totalCount: 0 };
-  return { data: (data || []) as (BreakLog & { profiles: { display_name: string | null } | null })[], totalCount: count ?? 0 };
+  const { data, error } = await q;
+  if (error) return { data: [], hasMore: false };
+  const rows = (data || []) as (BreakLog & { profiles: { display_name: string | null } | null })[];
+  const hasMore = rows.length > pageSize;
+  const dataSlice = hasMore ? rows.slice(0, pageSize) : rows;
+  return { data: dataSlice, hasMore };
 }
 
 /** ประมาณจำนวนพนักงานในแผนก+กะในวันนั้น ในกลุ่มที่กำหนด (จาก monthly_roster + profiles.role) — นับเฉพาะ role ที่ตรง user_group */

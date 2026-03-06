@@ -81,9 +81,10 @@ export default function ShiftSwap() {
       setProfilesInRound([]);
       return;
     }
+    const profileCols = 'id, email, display_name, role, default_branch_id, default_shift_id, active, created_at, updated_at';
     let q = supabase
       .from('profiles')
-      .select('*')
+      .select(profileCols)
       .eq('default_branch_id', selectedRound.branch_id)
       .eq('active', true)
       .in('role', ['instructor', 'staff', 'instructor_head']);
@@ -91,7 +92,7 @@ export default function ShiftSwap() {
       supabase.from('website_assignments').select('user_id').eq('website_id', selectedRound.website_id).then(({ data: assign }) => {
         const ids = (assign || []).map((r: { user_id: string }) => r.user_id);
         if (ids.length === 0) return setProfilesInRound([]);
-        supabase.from('profiles').select('*').eq('default_branch_id', selectedRound.branch_id).eq('active', true).in('role', ['instructor', 'staff', 'instructor_head']).in('id', ids).order('display_name').then(({ data }) => setProfilesInRound((data || []) as Profile[]));
+        supabase.from('profiles').select(profileCols).eq('default_branch_id', selectedRound.branch_id).eq('active', true).in('role', ['instructor', 'staff', 'instructor_head']).in('id', ids).order('display_name').then(({ data }) => setProfilesInRound((data || []) as Profile[]));
       });
     } else {
       q.order('display_name').then(({ data }) => setProfilesInRound((data || []) as Profile[]));

@@ -115,21 +115,27 @@ export default function HolidayGrid() {
   }, [profile?.default_branch_id, isGlobalViewer, branchId]);
 
   useEffect(() => {
-    supabase.from('websites').select('id, name, alias').order('name').then(({ data }) => setWebsites(data || []));
-    supabase.from('holiday_quota_tiers').select('*').order('dimension').order('user_group').order('max_people').then(({ data }) => setQuotaTiers((data || []) as HolidayQuotaTier[]));
-    supabase.from('meal_settings').select('scope_holiday_quota_by_website, max_holiday_days_per_person_per_month').eq('is_enabled', true).order('effective_from', { ascending: false }).limit(1).maybeSingle().then(({ data }) => {
-      const row = data as { scope_holiday_quota_by_website?: boolean; max_holiday_days_per_person_per_month?: number | null } | null;
-      setScopeHolidayQuotaByWebsite(row?.scope_holiday_quota_by_website !== false);
-      setGlobalMaxHolidayDaysPerMonth(row?.max_holiday_days_per_person_per_month ?? null);
+    Promise.all([
+      supabase.from('websites').select('id, name, alias').order('name').then(({ data }) => data || []),
+      supabase.from('holiday_quota_tiers').select('id, dimension, user_group, max_people, max_leave, sort_order').order('dimension').order('user_group').order('max_people').then(({ data }) => (data || []) as HolidayQuotaTier[]),
+      supabase.from('meal_settings').select('scope_holiday_quota_by_website, max_holiday_days_per_person_per_month').eq('is_enabled', true).order('effective_from', { ascending: false }).limit(1).maybeSingle().then(({ data }) => data as { scope_holiday_quota_by_website?: boolean; max_holiday_days_per_person_per_month?: number | null } | null),
+      supabase.from('leave_types').select('code, name, color, description').order('code').then(({ data }) => (data || []) as LeaveType[]),
+    ]).then(([websitesData, quotaData, mealRow, leaveData]) => {
+      setWebsites(websitesData as Array<{ id: string; name: string; alias: string }>);
+      setQuotaTiers(quotaData);
+      setScopeHolidayQuotaByWebsite(mealRow?.scope_holiday_quota_by_website !== false);
+      setGlobalMaxHolidayDaysPerMonth(mealRow?.max_holiday_days_per_person_per_month ?? null);
+      setLeaveTypes(leaveData);
     });
-    supabase.from('leave_types').select('code, name, color, description').order('code').then(({ data }) => setLeaveTypes((data || []) as LeaveType[]));
   }, []);
 
   const effectiveBranchId = branchId || (isGlobalViewer ? null : (profile?.default_branch_id ?? null));
 
-  /** Single RPC load for HolidayGrid: staff (minimal + primary_website_id) + holidays in month range */
+  /** Single RPC load for HolidayGrid: staff (minimal + primary_website_id) + holidays in month range. Request id guard to avoid applying stale result when deps change quickly */
+  const holidayGridRequestIdRef = useRef(0);
   useEffect(() => {
     if (!effectiveBranchId && !isGlobalViewer) return;
+    const requestId = ++holidayGridRequestIdRef.current;
     const start = format(startOfMonth(monthDate), 'yyyy-MM-dd');
     const end = format(endOfMonth(monthDate), 'yyyy-MM-dd');
     const onlyMyUserId = onlyMyData && user?.id ? user.id : null;
@@ -141,6 +147,7 @@ export default function HolidayGrid() {
         p_only_my_user_id: onlyMyUserId,
       })
       .then(({ data, error }) => {
+        if (requestId !== holidayGridRequestIdRef.current) return;
         if (error || !data?.[0]) {
           setStaffList([]);
           setHolidays([]);
@@ -167,7 +174,7 @@ export default function HolidayGrid() {
   }, [effectiveBranchId, month, onlyMyData, user?.id, isGlobalViewer, monthDate]);
 
   useEffect(() => {
-    supabase.from('holiday_booking_config').select('*').eq('target_year_month', month).maybeSingle().then(({ data }) => setBookingConfig(data as HolidayBookingConfig | null));
+    supabase.from('holiday_booking_config').select('id, target_year_month, open_from, open_until, max_days_per_person').eq('target_year_month', month).maybeSingle().then(({ data }) => setBookingConfig(data as HolidayBookingConfig | null));
   }, [month]);
 
   useEffect(() => {
@@ -201,37 +208,51 @@ export default function HolidayGrid() {
     const end = format(endOfMonth(monthDate), 'yyyy-MM-dd');
     const ids = staffList.map((s) => s.id);
     if (ids.length === 0) return;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const refresh = () => {
-      getScheduledShiftChangeDatesByUser(ids, start, end).then(setScheduledShiftChangeDatesByUser);
-      const fallbacks = new Map(staffList.map((s) => [s.id, { branch_id: s.default_branch_id ?? null, shift_id: s.default_shift_id ?? null }]));
-      const isNight = (shiftId: string) => getShiftKind(shifts.find((s) => s.id === shiftId)) === 'night';
-      getEffectiveForStaffInMonth(ids, start, end, fallbacks, { isNightShiftId: isNight }).then(setEffectiveByUserByDate);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        getScheduledShiftChangeDatesByUser(ids, start, end).then(setScheduledShiftChangeDatesByUser);
+        const fallbacks = new Map(staffList.map((s) => [s.id, { branch_id: s.default_branch_id ?? null, shift_id: s.default_shift_id ?? null }]));
+        const isNight = (shiftId: string) => getShiftKind(shifts.find((s) => s.id === shiftId)) === 'night';
+        getEffectiveForStaffInMonth(ids, start, end, fallbacks, { isNightShiftId: isNight }).then(setEffectiveByUserByDate);
+      }, 400);
     };
     const channel = supabase
       .channel('holiday-grid-shift-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shift_swaps' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cross_branch_transfers' }, refresh)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
   }, [staffList, monthDate, shifts]);
 
   useEffect(() => {
     if (!effectiveBranchId && !isAdmin) return;
     const start = format(startOfMonth(monthDate), 'yyyy-MM-dd');
     const end = format(endOfMonth(monthDate), 'yyyy-MM-dd');
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel('holidays-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'holidays' }, () => {
-        let q = supabase.from('holidays').select('*').gte('holiday_date', start).lte('holiday_date', end);
-        if (effectiveBranchId) q = q.eq('branch_id', effectiveBranchId);
-        if (onlyMyData && user?.id) q = q.eq('user_id', user.id);
-        q.then(({ data }) => setHolidays(data || []));
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          debounceTimer = null;
+          let q = supabase.from('holidays').select('id, user_id, branch_id, shift_id, holiday_date, status, reason, leave_type, user_group, is_quota_exempt, approved_by, approved_at, reject_reason, created_at, updated_at').gte('holiday_date', start).lte('holiday_date', end);
+          if (effectiveBranchId) q = q.eq('branch_id', effectiveBranchId);
+          if (onlyMyData && user?.id) q = q.eq('user_id', user.id);
+          q.then(({ data }) => setHolidays(data || []));
+        }, 300);
       })
       .subscribe();
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, [effectiveBranchId, month, monthDate, onlyMyData, user?.id, isGlobalViewer]);
+  }, [effectiveBranchId, month, monthDate, onlyMyData, user?.id, isAdmin]);
 
   /** พนักงานออนไลน์ (staff) เห็นทุกคนในแผนกเดียวกันเหมือนหัวหน้า (กะเช้า/ดึก/กลาง) เพื่อดูกะทำงานของเพื่อนในแผนก */
   const effectiveUserGroup = (isAdmin || isManager || isInstructorHead || isInstructor)
@@ -564,7 +585,7 @@ export default function HolidayGrid() {
     setAddEditLeaveType('X');
     const start = format(startOfMonth(monthDate), 'yyyy-MM-dd');
     const end = format(endOfMonth(monthDate), 'yyyy-MM-dd');
-    let q = supabase.from('holidays').select('*').gte('holiday_date', start).lte('holiday_date', end);
+    let q = supabase.from('holidays').select('id, user_id, branch_id, shift_id, holiday_date, status, reason, leave_type, user_group, is_quota_exempt, approved_by, approved_at, reject_reason, created_at, updated_at').gte('holiday_date', start).lte('holiday_date', end);
     if (effectiveBranchId) q = q.eq('branch_id', effectiveBranchId);
     q.then(({ data }) => setHolidays(data || []));
   };
@@ -585,7 +606,7 @@ export default function HolidayGrid() {
     setAddEditLeaveType('X');
     const start = format(startOfMonth(monthDate), 'yyyy-MM-dd');
     const end = format(endOfMonth(monthDate), 'yyyy-MM-dd');
-    let q = supabase.from('holidays').select('*').gte('holiday_date', start).lte('holiday_date', end);
+    let q = supabase.from('holidays').select('id, user_id, branch_id, shift_id, holiday_date, status, reason, leave_type, user_group, is_quota_exempt, approved_by, approved_at, reject_reason, created_at, updated_at').gte('holiday_date', start).lte('holiday_date', end);
     if (effectiveBranchId) q = q.eq('branch_id', effectiveBranchId);
     q.then(({ data }) => setHolidays(data || []));
   };
@@ -598,7 +619,7 @@ export default function HolidayGrid() {
     setModal(null);
     const start = format(startOfMonth(monthDate), 'yyyy-MM-dd');
     const end = format(endOfMonth(monthDate), 'yyyy-MM-dd');
-    let q = supabase.from('holidays').select('*').gte('holiday_date', start).lte('holiday_date', end);
+    let q = supabase.from('holidays').select('id, user_id, branch_id, shift_id, holiday_date, status, reason, leave_type, user_group, is_quota_exempt, approved_by, approved_at, reject_reason, created_at, updated_at').gte('holiday_date', start).lte('holiday_date', end);
     if (effectiveBranchId) q = q.eq('branch_id', effectiveBranchId);
     q.then(({ data }) => setHolidays(data || []));
   };
@@ -615,7 +636,7 @@ export default function HolidayGrid() {
     setModal(null);
     const start = format(startOfMonth(monthDate), 'yyyy-MM-dd');
     const end = format(endOfMonth(monthDate), 'yyyy-MM-dd');
-    let q = supabase.from('holidays').select('*').gte('holiday_date', start).lte('holiday_date', end);
+    let q = supabase.from('holidays').select('id, user_id, branch_id, shift_id, holiday_date, status, reason, leave_type, user_group, is_quota_exempt, approved_by, approved_at, reject_reason, created_at, updated_at').gte('holiday_date', start).lte('holiday_date', end);
     if (effectiveBranchId) q = q.eq('branch_id', effectiveBranchId);
     q.then(({ data }) => setHolidays(data || []));
   };
@@ -637,7 +658,7 @@ export default function HolidayGrid() {
     setRejectReason('');
     const start = format(startOfMonth(monthDate), 'yyyy-MM-dd');
     const end = format(endOfMonth(monthDate), 'yyyy-MM-dd');
-    let q = supabase.from('holidays').select('*').gte('holiday_date', start).lte('holiday_date', end);
+    let q = supabase.from('holidays').select('id, user_id, branch_id, shift_id, holiday_date, status, reason, leave_type, user_group, is_quota_exempt, approved_by, approved_at, reject_reason, created_at, updated_at').gte('holiday_date', start).lte('holiday_date', end);
     if (effectiveBranchId) q = q.eq('branch_id', effectiveBranchId);
     q.then(({ data }) => setHolidays(data || []));
   };
