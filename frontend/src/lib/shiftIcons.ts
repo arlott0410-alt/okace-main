@@ -18,23 +18,24 @@ function parseTimeToMinutes(t: string | null | undefined): number | null {
 }
 
 /**
- * Determine shift kind from shift start_time (preferred) or name.
- * - morning: 04:00–11:59
- * - mid: 12:00–17:59
- * - night: 18:00–03:59 (includes times after midnight)
+ * Determine shift kind: ใช้ชื่อกะ (name) เป็นหลัก เพื่อให้ป้าย "เช้า/กลาง/ดึก" ตรงกับที่ตั้งในตั้งค่า (จัดการกะ)
+ * ถ้าชื่อไม่ตรงกับรูปแบบที่รู้จัก จึง fallback ใช้ start_time เป็นช่วงอ้างอิง
+ * - morning: 04:00–11:59 (หรือชื่อมี เช้า/morning/กลางวัน)
+ * - mid: 12:00–17:59 (หรือชื่อมี กลาง/mid/บ่าย)
+ * - night: 18:00–03:59 (หรือชื่อมี ดึก/night/กลางคืน)
  */
 export function getShiftKind(shift: { start_time?: string | null; end_time?: string | null; name?: string | null } | null | undefined): ShiftKind {
   if (!shift) return 'unknown';
-  const startMin = parseTimeToMinutes(shift.start_time);
-  if (startMin !== null) {
-    if (startMin >= 4 * 60 && startMin < 12 * 60) return 'morning';   // 04:00–11:59
-    if (startMin >= 12 * 60 && startMin < 18 * 60) return 'mid';     // 12:00–17:59
-    if (startMin >= 18 * 60 || startMin < 4 * 60) return 'night';    // 18:00–03:59
-  }
-  const name = (shift.name || '').toLowerCase();
+  const name = (shift.name || '').toLowerCase().trim();
   if (name.includes('เช้า') || name.includes('morning') || name.includes('กลางวัน')) return 'morning';
   if (name.includes('กลาง') || name.includes('mid') || name.includes('บ่าย')) return 'mid';
   if (name.includes('ดึก') || name.includes('night') || name.includes('กลางคืน')) return 'night';
+  const startMin = parseTimeToMinutes(shift.start_time);
+  if (startMin !== null) {
+    if (startMin >= 4 * 60 && startMin < 12 * 60) return 'morning';
+    if (startMin >= 12 * 60 && startMin < 18 * 60) return 'mid';
+    if (startMin >= 18 * 60 || startMin < 4 * 60) return 'night';
+  }
   return 'unknown';
 }
 
