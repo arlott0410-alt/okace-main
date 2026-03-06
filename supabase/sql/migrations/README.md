@@ -44,6 +44,7 @@
 | 32 | **32_third_party_drop_unused_columns.sql** | ลบคอลัมน์ที่ไม่ใช้ใน third_party_providers |
 | 33 | **33_meal_break_slot_within_shift.sql** | จองพักอาหาร: slot ต้องอยู่ทั้งกะ (book_meal_break) |
 | 34 | **34_shift_change_history_view.sql** | View ประวัติย้ายกะรวม (shift_change_history_view) |
+| 39 | **39_dashboard_tools.sql** | กล่องเครื่องมือแดชบอร์ด (dashboard_tools) — แสดงทุกคน แก้ไขได้หัวหน้า/ผู้จัดการ/แอดมิน |
 
 ---
 

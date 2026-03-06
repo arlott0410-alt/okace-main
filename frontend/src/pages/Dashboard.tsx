@@ -17,6 +17,7 @@ import { BtnEdit, BtnDelete } from '../components/ui/ActionIcons';
 type MyWebsiteRow = { id: string; website?: Website & { branch?: { name: string } }; is_primary?: boolean };
 
 type DashboardShortcut = { id: string; url: string; title: string; icon_url: string | null; sort_order: number };
+type DashboardTool = { id: string; url: string; title: string; icon_url: string | null; sort_order: number };
 
 /** วันนี้ (date only) ใน timezone Bangkok สำหรับ query */
 function todayDateString(): string {
@@ -75,6 +76,10 @@ export default function Dashboard() {
   const [shortcuts, setShortcuts] = useState<DashboardShortcut[]>([]);
   const [shortcutModal, setShortcutModal] = useState<{ open: boolean; editing: DashboardShortcut | null }>({ open: false, editing: null });
   const [shortcutForm, setShortcutForm] = useState({ url: '', title: '', icon_url: '' });
+  /** กล่องเครื่องมือ (เครื่องมือช่วย) — ระบบเดียวกับเมนูลัด */
+  const [tools, setTools] = useState<DashboardTool[]>([]);
+  const [toolModal, setToolModal] = useState<{ open: boolean; editing: DashboardTool | null }>({ open: false, editing: null });
+  const [toolForm, setToolForm] = useState({ url: '', title: '', icon_url: '' });
 
   useEffect(() => {
     if (!showTodayStaff || !todayStaffBranchId || !todayStaffShiftId) {
@@ -167,6 +172,16 @@ export default function Dashboard() {
   };
   useEffect(() => { loadShortcuts(); }, []);
 
+  /** โหลดกล่องเครื่องมือ (ทุกคนเห็น) */
+  const loadTools = () => {
+    Promise.resolve(
+      supabase.from('dashboard_tools').select('id, url, title, icon_url, sort_order').order('sort_order')
+    )
+      .then(({ data }) => setTools((data || []) as DashboardTool[]))
+      .catch(() => setTools([]));
+  };
+  useEffect(() => { loadTools(); }, []);
+
   useEffect(() => {
     if (!profile?.id || !showScheduledChanges) return;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -194,6 +209,7 @@ export default function Dashboard() {
   const getShiftLabelById = (id: string) => getShiftLabel(getShiftKind(shifts.find((s) => s.id === id)));
   const getBranchName = (id: string) => branches.find((b) => b.id === id)?.name ?? '';
   const canEditShortcuts = isAdmin || isManager || isInstructorHead;
+  const canEditTools = canEditShortcuts;
 
   const openShortcutEdit = (s: DashboardShortcut | null) => {
     setShortcutModal({ open: true, editing: s });
@@ -216,6 +232,29 @@ export default function Dashboard() {
     await supabase.from('dashboard_shortcuts').delete().eq('id', id);
     loadShortcuts();
     if (shortcutModal.editing?.id === id) setShortcutModal({ open: false, editing: null });
+  };
+
+  const openToolEdit = (t: DashboardTool | null) => {
+    setToolModal({ open: true, editing: t });
+    setToolForm(t ? { url: t.url, title: t.title, icon_url: t.icon_url || '' } : { url: '', title: '', icon_url: '' });
+  };
+  const saveTool = async () => {
+    if (!toolForm.title.trim() || !toolForm.url.trim()) return;
+    const payload = { url: toolForm.url.trim(), title: toolForm.title.trim(), icon_url: toolForm.icon_url.trim() || null };
+    if (toolModal.editing) {
+      await supabase.from('dashboard_tools').update(payload).eq('id', toolModal.editing.id);
+    } else {
+      await supabase.from('dashboard_tools').insert(payload);
+    }
+    loadTools();
+    setToolForm({ url: '', title: '', icon_url: '' });
+    setToolModal((prev) => ({ ...prev, editing: null }));
+  };
+  const deleteTool = async (id: string) => {
+    if (!confirm('ลบเครื่องมือนี้?')) return;
+    await supabase.from('dashboard_tools').delete().eq('id', id);
+    loadTools();
+    if (toolModal.editing?.id === id) setToolModal({ open: false, editing: null });
   };
 
   return (
@@ -257,6 +296,49 @@ export default function Dashboard() {
                     <div className="absolute bottom-2 right-2 flex items-center gap-1">
                       <BtnEdit title="แก้ไข" onClick={() => openShortcutEdit(s)} />
                       <BtnDelete title="ลบ" onClick={() => deleteShortcut(s.id)} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </PageCard>
+
+      {/* กล่องเครื่องมือ (เครื่องมือช่วย) — แสดงทุกคน; แก้ไขได้เฉพาะ admin/manager/หัวหน้า */}
+      <PageCard
+        title="🧰 กล่องเครื่องมือ (Tools)"
+        actions={canEditTools ? <button type="button" onClick={() => openToolEdit(null)} className="text-[12px] text-premium-gold hover:underline">จัดการเครื่องมือ</button> : undefined}
+      >
+        {tools.length === 0 ? (
+          <p className="text-[13px] text-gray-400">ยังไม่มีเครื่องมือ — {canEditTools ? 'กด "จัดการเครื่องมือ" เพื่อเพิ่ม' : 'แอดมิน/ผู้จัดการ/หัวหน้าสามารถเพิ่มได้'}</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {tools.map((t) => {
+              const isExternal = t.url.startsWith('http://') || t.url.startsWith('https://');
+              return (
+                <div
+                  key={t.id}
+                  className="relative flex items-center gap-3 rounded-xl border border-premium-gold/20 bg-premium-dark/40 hover:border-premium-gold/35 hover:bg-premium-gold/5 transition p-3 min-h-[56px]"
+                >
+                  <a
+                    href={t.url}
+                    target={isExternal ? '_blank' : undefined}
+                    rel={isExternal ? 'noopener noreferrer' : undefined}
+                    className="flex flex-1 items-center gap-3 min-w-0"
+                  >
+                    {t.icon_url ? (
+                      <img src={t.icon_url} alt="" className="w-9 h-9 flex-shrink-0 object-contain rounded" />
+                    ) : (
+                      <span className="w-9 h-9 flex items-center justify-center rounded bg-premium-gold/15 text-premium-gold text-lg flex-shrink-0" aria-hidden>🔧</span>
+                    )}
+                    <span className="text-[13px] font-medium text-gray-200 truncate flex-1">{t.title}</span>
+                    <span className="text-premium-gold/70 text-sm flex-shrink-0" aria-hidden>&rarr;</span>
+                  </a>
+                  {canEditTools && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <BtnEdit title="แก้ไข" onClick={() => openToolEdit(t)} />
+                      <BtnDelete title="ลบ" onClick={() => deleteTool(t.id)} />
                     </div>
                   )}
                 </div>
@@ -495,6 +577,52 @@ export default function Dashboard() {
           </div>
         </PageCard>
       )}
+
+      {/* Modal จัดการกล่องเครื่องมือ */}
+      <Modal
+        open={toolModal.open}
+        onClose={() => setToolModal({ open: false, editing: null })}
+        title={toolModal.editing ? 'แก้ไขเครื่องมือ' : 'เพิ่มเครื่องมือ'}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setToolModal({ open: false, editing: null })}>ปิด</Button>
+            <Button variant="gold" onClick={saveTool} disabled={!toolForm.title.trim() || !toolForm.url.trim()}>บันทึก</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-gray-400 text-xs font-medium mb-1">ลิงก์ (URL) *</label>
+            <input
+              type="url"
+              value={toolForm.url}
+              onChange={(e) => setToolForm((f) => ({ ...f, url: e.target.value }))}
+              placeholder="https://..."
+              className="w-full rounded-lg border border-premium-gold/25 bg-premium-dark text-white text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-premium-gold/50"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-400 text-xs font-medium mb-1">ชื่อเครื่องมือ *</label>
+            <input
+              type="text"
+              value={toolForm.title}
+              onChange={(e) => setToolForm((f) => ({ ...f, title: e.target.value }))}
+              placeholder="เช่น โปรแกรมที่ต้องใช้, Backup Keys"
+              className="w-full rounded-lg border border-premium-gold/25 bg-premium-dark text-white text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-premium-gold/50"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-400 text-xs font-medium mb-1">ไอคอน (URL, ไม่บังคับ)</label>
+            <input
+              type="url"
+              value={toolForm.icon_url}
+              onChange={(e) => setToolForm((f) => ({ ...f, icon_url: e.target.value }))}
+              placeholder="https://... รูปภาพ"
+              className="w-full rounded-lg border border-premium-gold/25 bg-premium-dark text-white text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-premium-gold/50"
+            />
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal จัดการเมนูลัด (เพิ่ม/แก้ไข/ลบ) */}
       <Modal
