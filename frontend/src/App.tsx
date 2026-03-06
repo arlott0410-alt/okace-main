@@ -19,8 +19,6 @@ const MyWebsites = lazy(() => import('./pages/MyWebsites'));
 const MemberManagement = lazy(() => import('./pages/MemberManagement'));
 const Account = lazy(() => import('./pages/Account'));
 const ThirdPartyProviders = lazy(() => import('./pages/ThirdPartyProviders'));
-const RosterConfirm = lazy(() => import('./pages/RosterConfirm'));
-
 function ProtectedRoute({ children, allowedRoles, staffOnly }: { children: React.ReactNode; allowedRoles?: string[]; staffOnly?: boolean }) {
   const { user, profile, loading } = useAuth();
   if (loading) {
@@ -61,14 +59,13 @@ export default function App() {
         <Route path="ประวัติย้ายกะ" element={<Navigate to="/ประวัติ" replace />} />
         <Route path="งานของฉัน" element={<Navigate to="/dashboard" replace />} />
         <Route path="จัดหน้าที่" element={<DutyBoard />} />
-        <Route path="ยืนยันตารางกะ" element={<ProtectedRoute allowedRoles={['admin', 'manager', 'instructor_head']}><RosterConfirm /></ProtectedRoute>} />
         <Route path="ตารางงาน" element={<ScheduleCards />} />
         <Route path="คลังเก็บไฟล์" element={<PhotoVault />} />
         <Route path="กลุ่มงาน" element={<GroupLinks />} />
         <Route path="บุคคลที่สาม" element={<ThirdPartyProviders />} />
         <Route path="ประวัติ" element={<History />} />
-        <Route path="เว็บที่ดูแล" element={<ProtectedRoute allowedRoles={['admin', 'instructor_head']}><ManagedWebsites /></ProtectedRoute>} />
-        <Route path="เว็บที่ฉันดูแล" element={<ProtectedRoute allowedRoles={['instructor', 'staff', 'manager']}><MyWebsites /></ProtectedRoute>} />
+        <Route path="เว็บที่ดูแล" element={<ProtectedRoute allowedRoles={['admin', 'manager', 'instructor_head']}><ManagedWebsites /></ProtectedRoute>} />
+        <Route path="เว็บที่ฉันดูแล" element={<ProtectedRoute allowedRoles={['instructor', 'staff']}><MyWebsites /></ProtectedRoute>} />
         <Route path="จัดการสมาชิก" element={<ProtectedRoute allowedRoles={['admin', 'manager', 'instructor_head']}><MemberManagement /></ProtectedRoute>} />
         <Route path="บัญชีของฉัน" element={<Account />} />
         <Route path="ตั้งค่า" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Settings /></ProtectedRoute>} />
